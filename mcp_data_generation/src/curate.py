@@ -1,15 +1,16 @@
 """Turn processed documents into curated ones.
 
-A processed document carries a bare SAID in ``identifier`` and nothing else to
-identify it. A curated document adds the three fields consumers expect:
+A curated document is the Normalized Document from issue #8 and AGENTS.md:
 
-    id               human-readable and unique, e.g.
-                     "zoom-hiero-ai-summary-GMT20260407-135959"
-    identifier_type  always "SAID"
-    collected_at     when the source file was ingested
-
-and re-derives ``identifier`` as a URN SAID (``urn:said:E...``) over the
-finished document, so it still self-verifies with ``py_verify_urn``.
+    schema_version   1
+    identifier       URN SAID (``urn:said:E...``) over the finished document,
+                     so it self-verifies with ``py_verify_urn``
+    document         project, organizational_unit, title, date
+    provenance       artifact_id (``sha256:`` of the source file's contents,
+                     from the ingestion registry), plus source_system,
+                     source_identifier, source_url and collected_at until
+                     Content Acquisition publishes Raw Artifact records
+    content          content_type, text
 
 Curating also strips recurring boilerplate. LFX copies a meeting series'
 standing agenda into every instance of that series, so the same paragraphs
@@ -19,9 +20,11 @@ meeting actually covered. Each repeated block is kept in the earliest document
 that carries it and dropped from the rest, so the text stays findable exactly
 once instead of filling a result page.
 
-The processed tree is only ever read. Curated documents are named ``<id>.json``,
-so re-running overwrites in place rather than accumulating strays; ``--prune``
-clears any left by an earlier id scheme.
+The processed tree is only ever read. Curated documents are named after a
+human-readable id, e.g. ``zoom-hiero-ai-summary-GMT20260407-135959.json``, so
+re-running overwrites in place rather than accumulating strays; ``--prune``
+clears any left by an earlier id scheme. The id names the file only and is not
+part of the document.
 
     python -m src.curate
     python -m src.curate --processed data/processed --curated data/curated
@@ -65,24 +68,7 @@ DEFAULT_PROCESSED_DIR = Path("data/processed")
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_REGISTRY_FILE = Path("data/ingestion_registry.json")
 
-# Field order is part of the document: the SAID is computed over the serialized
-# dict, so a stable order keeps the SAID stable.
-FIELD_ORDER = (
-    "id",
-    "project",
-    "organizational_unit",
-    "source_system",
-    "source_identifier",
-    "source_url",
-    "date",
-    "asset_type",
-    "content_type",
-    "title",
-    "identifier",
-    "identifier_type",
-    "collected_at",
-    "content",
-)
+SCHEMA_VERSION = 1
 
 
 def warn(message: str) -> None:
@@ -265,8 +251,12 @@ def strip_boilerplate(
     return stripped, removed, False
 
 
-def _collected_at_index(registry_file: Path) -> dict:
-    """Map a processed SAID to when its source was ingested."""
+def _source_index(registry_file: Path) -> dict[str, tuple[str, str]]:
+    """Map a processed SAID to (collected_at, artifact_id) of its source file.
+
+    When the same content came from several files, the earliest ingestion wins
+    so the choice does not depend on registry order.
+    """
 
     if not registry_file.exists():
         return {}
@@ -280,10 +270,12 @@ def _collected_at_index(registry_file: Path) -> dict:
 
     # A file may yield several documents, so an entry records a list of SAIDs.
     # Entries written before that carry a single "document_said".
-    stamps = {}
+    sources: dict[str, tuple[str, str]] = {}
 
     for entry in registry.values():
         processed_at = entry.get("processed_at", "")
+        file_hash = entry.get("file_hash", "")
+        artifact_id = f"sha256:{file_hash}" if file_hash else ""
         saids = entry.get("document_saids")
 
         if not isinstance(saids, list):
@@ -291,30 +283,44 @@ def _collected_at_index(registry_file: Path) -> dict:
             saids = [said] if said else []
 
         for said in saids:
-            if said:
-                stamps[said] = processed_at
+            if not said:
+                continue
+            candidate = (processed_at, artifact_id)
+            if said not in sources or candidate < sources[said]:
+                sources[said] = candidate
 
-    return stamps
+    return sources
 
 
-def curate_document(document: dict, collected_at: str) -> tuple[str, dict]:
-    """Return (urn, curated document) for one processed document."""
+def curate_document(
+    document: dict, collected_at: str, artifact_id: str
+) -> tuple[str, dict]:
+    """Return (urn, curated document) for one processed document.
+
+    Key order is part of the document: the SAID is computed over the serialized
+    dict, so a stable order keeps the SAID stable.
+    """
 
     curated = {
-        "id": build_id(document),
-        "project": document.get("project", ""),
-        "organizational_unit": document.get("organizational_unit", []),
-        "source_system": document.get("source_system", ""),
-        "source_identifier": document.get("source_identifier", ""),
-        "source_url": document.get("source_url", ""),
-        "date": document.get("date", ""),
-        "asset_type": document.get("asset_type", ""),
-        "content_type": document.get("content_type", ""),
-        "title": document.get("title", ""),
+        "schema_version": SCHEMA_VERSION,
         "identifier": "",
-        "identifier_type": "SAID",
-        "collected_at": collected_at,
-        "content": document.get("content", ""),
+        "document": {
+            "project": document.get("project", ""),
+            "organizational_unit": document.get("organizational_unit", []),
+            "title": document.get("title", ""),
+            "date": document.get("date", ""),
+        },
+        "provenance": {
+            "artifact_id": artifact_id,
+            "source_system": document.get("source_system", ""),
+            "source_identifier": document.get("source_identifier", ""),
+            "source_url": document.get("source_url", ""),
+            "collected_at": collected_at,
+        },
+        "content": {
+            "content_type": document.get("content_type", ""),
+            "text": document.get("content", ""),
+        },
     }
 
     return py_saidify_urn(curated, label="identifier")
@@ -324,8 +330,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m src.curate",
         description=(
-            "Add id / identifier_type / collected_at to processed documents "
-            "and re-derive the identifier as a URN SAID."
+            "Turn processed documents into Normalized Documents (issue #8) "
+            "identified by a URN SAID."
         ),
     )
     parser.add_argument(
@@ -341,7 +347,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--registry",
         default=os.environ.get("MCP_REGISTRY_FILE", DEFAULT_REGISTRY_FILE),
-        help="ingestion registry, read for collected_at timestamps",
+        help="ingestion registry, read for collected_at and artifact_id",
     )
     parser.add_argument(
         "--prune",
@@ -378,7 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     if curated_dir == processed_dir:
         raise SystemExit("--curated must differ from --processed")
 
-    collected = _collected_at_index(registry_file)
+    sources = _source_index(registry_file)
 
     if not args.dry_run:
         curated_dir.mkdir(parents=True, exist_ok=True)
@@ -429,12 +435,13 @@ def main(argv: list[str] | None = None) -> int:
                 document["content"] = content
 
         said = document.get("identifier", "")
-        stamp = collected.get(said) or datetime.fromtimestamp(
+        recorded_stamp, artifact_id = sources.get(said, ("", ""))
+        stamp = recorded_stamp or datetime.fromtimestamp(
             path.stat().st_mtime, timezone.utc
         ).isoformat()
 
-        urn, curated = curate_document(document, stamp)
-        document_id = curated["id"]
+        urn, curated = curate_document(document, stamp, artifact_id)
+        document_id = build_id(document)
 
         if document_id in ids:
             warn(

@@ -1,6 +1,7 @@
 import { LocalIndex } from 'vectra'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { documentStore, toSearchResult } from './documents.js'
 import { search } from './search.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -73,9 +74,22 @@ if (!(await index.isIndexCreated())) {
 }
 
 const result = await search(index, query, limit, { filterWg, allChunks })
+const documents = await documentStore()
+const results = result.hits.map((hit) => ({
+  ...toSearchResult(hit.metadata, hit.score, documents.get(hit.metadata.document_id as string)),
+  vector_score: hit.vector_score,
+  lexical_score: hit.lexical_score,
+  matched_terms: hit.matched_terms,
+}))
 
 if (asJson) {
-  console.log(JSON.stringify(result, null, 2))
+  console.log(
+    JSON.stringify(
+      { query_terms: result.query_terms, candidates: result.candidates, results },
+      null,
+      2
+    )
+  )
   process.exit(0)
 }
 
@@ -83,26 +97,24 @@ console.log(`query terms: ${result.query_terms.join(', ') || '(none)'}`)
 console.log(`candidates:  ${result.candidates}`)
 console.log('')
 
-if (result.hits.length === 0) {
+if (results.length === 0) {
   console.log('No results.')
   process.exit(0)
 }
 
-for (const [i, hit] of result.hits.entries()) {
-  const m = hit.metadata as Record<string, string | number>
-
+for (const [i, r] of results.entries()) {
   console.log(
-    `${i + 1}. ${m.title}  (${m.date})  [${m.project} / ${m.content_type}]`
+    `${i + 1}. ${r.title || '(document not found)'}  (${r.date})  [${r.project} / ${r.content_type}]`
   )
   console.log(
-    `   fused=${hit.score.toFixed(4)}  vector=${hit.vector_score.toFixed(3)}` +
-      `  lexical=${hit.lexical_score.toFixed(3)}  chunk ${m.chunk_index}`
+    `   fused=${r.score.toFixed(4)}  vector=${r.vector_score.toFixed(3)}` +
+      `  lexical=${r.lexical_score.toFixed(3)}  ${r.chunk_id}`
   )
   console.log(
-    `   matched: ${hit.matched_terms.length ? hit.matched_terms.join(', ') : '(none)'}`
+    `   matched: ${r.matched_terms.length ? r.matched_terms.join(', ') : '(none)'}`
   )
   if (textChars > 0) {
-    const text = String(m.chunk_text ?? '').replace(/\s+/g, ' ').slice(0, textChars)
+    const text = r.text.replace(/\s+/g, ' ').slice(0, textChars)
     console.log(`   ${text}${text.length >= textChars ? '…' : ''}`)
   }
   console.log('')

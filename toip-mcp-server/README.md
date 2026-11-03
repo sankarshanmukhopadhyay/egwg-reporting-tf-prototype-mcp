@@ -38,24 +38,24 @@ Options:
 | `--prune` | drop indexed documents the curated directory no longer holds |
 | `--rebuild` | delete the index and start over |
 
-**Ingest resumes, and notices changed documents.** Each document is committed
-in its own transaction, so an interrupted run picks up where it left off.
+**Ingest resumes.** Each document is committed in its own transaction, so an
+interrupted run picks up where it left off. Chunks are keyed by `document_id`,
+the document's SAID, and a document whose SAID is already indexed is skipped.
 
-A document is skipped only when the `identifier` in the index matches the one
-in the curated document. That identifier is a SAID computed over the whole
-document, so any change to its content produces a different one: a re-curated
-document is re-embedded and its old chunks are deleted in the same transaction,
-rather than being skipped because its `doc_id` was already present. The closing
-summary reports how many were replaced that way.
+An edited document has a new SAID, so it is indexed as a new document and its
+old version is left behind, just like a document removed from curation. A full
+run reports how many indexed documents are no longer in the curated directory;
+`--prune` deletes them. `--prune` refuses to run with `--limit`, because a
+limited run never sees the rest of the corpus and would prune documents that
+are still there.
 
-A document *removed* from curation is a different case: the run walks the
-curated directory, so a document that is no longer there is never looked at and
-its chunks stay indexed and keep turning up in searches. `--prune` deletes
-them. It is the index's half of the `--prune` the curation tools do upstream,
-and it refuses to run with `--limit`, because a limited run never sees the rest
-of the corpus and would prune documents that are still there.
+`--rebuild` deletes the index and starts clean.
 
-`--rebuild` is still there for starting clean.
+**Upgrading from an index built before #8.** Chunks are now stored in the
+[#8](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/8)
+Embedded Chunk shape, and ingest refuses to resume an older index. Re-curate
+(`python -m src.curate --prune` in `mcp_data_generation`), then run
+`npm run ingest -- --rebuild` once.
 
 The full corpus is large — 6766 documents at the last count (4663 from Zoom,
 2103 from Confluence), which is tens of thousands of chunks, the better part
@@ -116,7 +116,7 @@ npm run query -- --wg "Ecosystem Governance" "reporting templates"
 | `--wg NAME` | only meetings whose `organizational_unit` contains NAME |
 | `--all-chunks` | allow several chunks from one document |
 | `--text N` | characters of chunk text to print, `0` for none (default 300) |
-| `--json` | raw result object instead of the summary |
+| `--json` | #8 Search Results, plus the component scores and matched terms, instead of the summary |
 
 `--wg` is applied inside the vector query, before ranking, so a small task
 force is ranked on its own chunks rather than on whatever survived of the
@@ -130,6 +130,20 @@ have no substring operator. The MCP `search` tool behaves identically.
 ```bash
 npm start
 ```
+
+Search results join each chunk to its curated document for the title, project
+and source, so the server reads the same curated directory as ingest. Set
+`TOIP_DATA_DIR` if it is not `../mcp_data_generation/data/curated`.
+
+## Test
+
+```bash
+npm test
+```
+
+Checks the handoff from curation to the server against
+`mcp_data_generation/tests/normalized_document.example.json`, the same
+document the Python tests check curate's output against.
 
 ## Cursor / Claude Desktop config
 
@@ -163,7 +177,7 @@ Or for development (no build step):
 
 - **search** — hybrid semantic + keyword search over all document chunks (see
   [How search works](#how-search-works)). Returns matching passages with title,
-  date, WG, source, identifier, the component scores, and the query terms each
+  project, date, WG, source, document and chunk ids, the component scores, and the query terms each
   passage contains. Optional `filter_wg` narrows by working group;
   `all_chunks` allows several chunks from one document.
 - **list_documents** — list indexed documents with metadata, newest first,
@@ -176,18 +190,16 @@ Or for development (no build step):
 
 ## Data schema
 
-Each document is a curated document from `mcp_data_generation` (see its
-README, step 4):
+The server follows the data models in
+[#8](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/8)
+and `AGENTS.md`:
 
-| Field | Description |
+| Model | Where it lives |
 |---|---|
-| `id` | Stable human-readable identifier |
-| `project` | e.g. "Trust Over IP Project (ToIP)", "Hiero", "Besu" |
-| `organizational_unit` | WG/TF array |
-| `date` | Meeting or publication date |
-| `source_system` | `Zoom` or `Confluence` |
-| `content_type` | Transcript, ClosedCaptioning, Chat, AI Summary, Wiki Page |
-| `identifier` | SAID (`urn:said:...`) |
-| `identifier_type` | `SAID` |
-| `collected_at` | When the source file was ingested |
-| `content` | Full text (chunked for search) |
+| Normalized Document | curated JSON from `mcp_data_generation` (step 4), read by ingest and by the server |
+| Embedded Chunk | vector index metadata: `chunk_id` (`<document SAID>#chunk-001`), `document_id`, `chunk_index`, `content_type`, `date`, `organizational_unit`, `text`, `embedding_model` |
+| Search Result | built at query time by joining a chunk to its document; `npm run query -- --json` prints it |
+
+The index carries only what a chunk needs for search and filtering. Title,
+project and source come from the curated document, so the index is not a
+source of truth for document metadata and can be rebuilt at any time.
