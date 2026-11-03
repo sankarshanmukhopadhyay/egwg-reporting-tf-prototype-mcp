@@ -60,10 +60,17 @@ server.tool(
 
     const documents = await documentStore()
 
-    const output = hits.map((hit) => {
-      const r = toSearchResult(hit.metadata, hit.score, documents.get(hit.metadata.document_id as string))
-
-      return [
+    const resolved = hits.map((hit) => ({
+      hit,
+      resolution: toSearchResult(
+        hit.metadata, hit.score, documents.get(hit.metadata.document_id as string)
+      ),
+    }))
+    const unresolved = resolved.filter((entry) => entry.resolution.status === 'unresolved')
+    const output = resolved.flatMap(({ hit, resolution }) => {
+      if (resolution.status === 'unresolved') return []
+      const r = resolution.result
+      return [[
         `**${r.title || '(document not found in the curated directory)'}** (${r.date})`,
         `${r.project} | ${r.content_type} | ${r.organizational_unit.join(', ')}`,
         `Source: ${r.source.system} ${r.source.identifier}${r.source.url ? ` — ${r.source.url}` : ''}`,
@@ -75,11 +82,18 @@ server.tool(
         ``,
         r.text,
         `---`,
-      ].join('\n')
+      ].join('\n')]
     })
 
+    const warning = unresolved.length
+      ? 'Retrieval integrity: ' + unresolved.length +
+        ' hit(s) withheld due to unresolved document joins (' +
+        unresolved.map(({ resolution }) => resolution.status === 'unresolved'
+          ? resolution.reason + ': ' + resolution.document_id : '').join('; ') + ').\n\n'
+      : ''
     return {
-      content: [{ type: 'text' as const, text: header + output.join('\n') }],
+      content: [{ type: 'text' as const, text: warning + header + (output.join('\n') || 'No provenance-resolved results.') }],
+      ...(output.length === 0 && unresolved.length > 0 ? { isError: true } : {}),
     }
   }
 )

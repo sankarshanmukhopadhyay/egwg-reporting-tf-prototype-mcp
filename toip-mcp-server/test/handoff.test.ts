@@ -107,6 +107,8 @@ test('search results join the chunk to its document', async () => {
     const result = toSearchResult(chunkMetadata(chunk), 0.5, documents.get(doc.identifier))
 
     assert.deepEqual(result, {
+      status: 'resolved',
+      result: {
       schema_version: 1,
       score: 0.5,
       chunk_id: chunk.chunk_id,
@@ -122,18 +124,31 @@ test('search results join the chunk to its document', async () => {
       },
       content_type: doc.content.content_type,
       text: chunk.text,
+      },
     })
   } finally {
     await fs.rm(dir, { recursive: true, force: true })
   }
 })
 
-test('a chunk whose document is missing still returns its own fields', async () => {
+test('missing document is not represented as a resolved search result', async () => {
   const [chunk] = toEmbeddedChunks(await example())
-  const result = toSearchResult(chunkMetadata(chunk), 0.1, undefined)
+  assert.deepEqual(toSearchResult(chunkMetadata(chunk), 0.1, undefined), {
+    status: 'unresolved',
+    reason: 'missing_document',
+    chunk_id: chunk.chunk_id,
+    document_id: chunk.document_id,
+  })
+})
 
-  assert.equal(result.chunk_id, chunk.chunk_id)
-  assert.equal(result.text, chunk.text)
-  assert.equal(result.title, '')
-  assert.deepEqual(result.source, { system: '', identifier: '', url: '' })
+test('inconsistent document identity is rejected rather than decorated with incorrect provenance', async () => {
+  const doc = await example()
+  const [chunk] = toEmbeddedChunks(doc)
+  const mismatch = { ...doc, identifier: 'urn:said:another-document' }
+  assert.deepEqual(toSearchResult(chunkMetadata(chunk), 0.1, mismatch), {
+    status: 'unresolved',
+    reason: 'document_identifier_mismatch',
+    chunk_id: chunk.chunk_id,
+    document_id: chunk.document_id,
+  })
 })
