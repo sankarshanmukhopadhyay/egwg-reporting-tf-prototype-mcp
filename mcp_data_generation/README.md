@@ -609,9 +609,9 @@ generated JSON — generated documents are overwritten on every reprocess.
 
 ## Step 4: Curate
 
-Processed documents carry a bare SAID and nothing else to identify them.
-Curating adds the three fields consumers expect and re-derives the identifier
-as a URN SAID:
+Curating turns each processed document into the Normalized Document from
+[#8](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/8),
+the contract the MCP server indexes:
 
 ```bash
 ./.venv/bin/python -m src.curate
@@ -619,22 +619,52 @@ as a URN SAID:
 
 Reads `data/processed`, writes `data/curated`. The processed tree is only read.
 
-| Added field | Value |
-|---|---|
-| `id` | human-readable and unique, e.g. `zoom-hiero-ai-summary-GMT20260407-135959` |
-| `identifier_type` | always `SAID` |
-| `collected_at` | when the source file was ingested, taken from the registry |
+```json
+{
+  "schema_version": 1,
+  "identifier": "urn:said:E...",
+  "document": {
+    "project": "Example Project",
+    "organizational_unit": ["Example Working Group"],
+    "title": "Example Community Call",
+    "date": "2026-02-11"
+  },
+  "provenance": {
+    "artifact_id": "sha256:...",
+    "source_system": "Zoom",
+    "source_identifier": "GMT20260211-150000",
+    "source_url": "https://...",
+    "collected_at": "2026-02-11T15:30:00+00:00"
+  },
+  "content": {
+    "content_type": "Transcript",
+    "text": "..."
+  }
+}
+```
 
-`identifier` is re-derived over the finished document as `urn:said:E...`, so it
-still self-verifies with `py_verify_urn`.
+`identifier` is derived over the finished document as `urn:said:E...`, so it
+self-verifies with `py_verify_urn`. `artifact_id` is the content hash of the
+source file from the registry, so it survives a rename or recompression.
+`collected_at` is when that content was first ingested.
 
-The `id` includes the project because the same recording is occasionally
-cross-listed under two projects — 14 such pairs exist in the current corpus, and
-without the project they would collide.
+`#8` places only `artifact_id` under `provenance`. `source_system`,
+`source_identifier`, `source_url` and `collected_at` stay there until Content
+Acquisition publishes Raw Artifact records the server can join against;
+without them a search result could not link back to its source.
 
-Documents are named `<id>.json`, so re-running overwrites in place. `--prune`
-clears curated documents the current run did not produce; `--dry-run`,
-`--quiet` and `--registry` behave as in step 2.
+`tests/normalized_document.example.json` is a real curated document, and is the
+shared fixture for this contract: `tests/test_normalized_document.py` checks
+curate's output against it, and the server's `npm test` checks that the server
+consumes it.
+
+Files are named after a human-readable id, e.g.
+`zoom-hiero-ai-summary-GMT20260407-135959.json`, so re-running overwrites in
+place. The id includes the project because the same recording is occasionally
+cross-listed under two projects — 14 such pairs exist in the current corpus,
+and without the project they would collide. The id names the file only and is
+not part of the document. `--prune` clears curated documents the current run
+did not produce; `--dry-run`, `--quiet` and `--registry` behave as in step 2.
 
 ### Recurring boilerplate
 
@@ -744,7 +774,7 @@ The SAID is produced by `src/py_saidify.py` over the `identifier` field.
 data/
 ├── raw/           # Original files (or point --raw at a shared cache)
 ├── processed/     # JSON documents written by the ingestion engine
-├── curated/       # Documents with id / identifier_type / collected_at
+├── curated/       # Normalized Documents (#8) the MCP server indexes
 └── ingestion_registry.json
 ```
 

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "identifier": "urn:said:EMyypwwOfspj9IsrLu2h_aOLT3V4RLHwfiI-MrmFCID2",
+  "document": {
+    "project": "Example Project",
+    "organizational_unit": [
+      "Example Working Group"
+    ],
+    "title": "Example Community Call",
+    "date": "2026-02-11"
+  },
+  "provenance": {
+    "artifact_id": "sha256:a25b4d074f25d60af81d4ed606df8f1fa4b831c3c9ae1009dd51ac8d253ea2b5",
+    "source_system": "Zoom",
+    "source_identifier": "GMT20260211-150000",
+    "source_url": "https://example.invalid/meetings/example",
+    "collected_at": "2026-02-11T15:30:00+00:00"
+  },
+  "content": {
+    "content_type": "Transcript",
+    "text": "1 Welcome everyone, let us start with the agenda for today. 2 The first item is the draft governance framework."
+  }
+}

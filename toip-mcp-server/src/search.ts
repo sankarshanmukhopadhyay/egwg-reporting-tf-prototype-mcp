@@ -23,6 +23,7 @@
  */
 
 import type { LocalIndex, MetadataFilter } from 'vectra'
+import { organizationalUnits } from './documents.js'
 import { embed } from './embed.js'
 
 /** Rank-fusion constant. 60 is the value from the original RRF paper. */
@@ -122,19 +123,6 @@ function termCounts(text: string): Map<string, number> {
   return counts
 }
 
-/**
- * The working groups a chunk belongs to. Vectra metadata holds only scalars,
- * so ingest stores the array as a JSON string.
- */
-export function organizationalUnits(metadata: Record<string, unknown>): string[] {
-  try {
-    const units: unknown = JSON.parse((metadata.organizational_unit as string) ?? '[]')
-    return Array.isArray(units) ? units.map(String) : []
-  } catch {
-    return []
-  }
-}
-
 export function matchesWg(units: string[], filterWg: string): boolean {
   const needle = filterWg.toLowerCase()
   return units.some((unit) => unit.toLowerCase().includes(needle))
@@ -210,7 +198,7 @@ export async function search(
     return { hits: [], query_terms: terms, candidates: 0 }
   }
 
-  const texts = candidates.map((r) => (r.item.metadata.chunk_text as string) ?? '')
+  const texts = candidates.map((r) => (r.item.metadata.text as string) ?? '')
   const counts = texts.map(termCounts)
 
   // Document frequency across the candidate set only. A term present in every
@@ -277,7 +265,7 @@ export async function search(
 
   for (const hit of fused) {
     if (!options.allChunks) {
-      const docId = hit.metadata.doc_id as string
+      const docId = hit.metadata.document_id as string
       if (seenDocs.has(docId)) continue
       seenDocs.add(docId)
     }

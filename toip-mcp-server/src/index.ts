@@ -4,7 +4,8 @@ import { LocalIndex } from 'vectra'
 import { z } from 'zod'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { matchesWg, organizationalUnits, search } from './search.js'
+import { documentStore, organizationalUnits, toSearchResult } from './documents.js'
+import { matchesWg, search } from './search.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const INDEX_PATH = path.join(__dirname, '..', '.index')
@@ -57,20 +58,22 @@ server.tool(
       '',
     ].join('\n')
 
+    const documents = await documentStore()
+
     const output = hits.map((hit) => {
-      const m = hit.metadata as Record<string, string | number>
-      const units = organizationalUnits(m)
+      const r = toSearchResult(hit.metadata, hit.score, documents.get(hit.metadata.document_id as string))
 
       return [
-        `**${m.title}** (${m.date})`,
-        `ID: ${m.doc_id} | ${m.content_type} | ${units.join(', ')}`,
-        `Source: ${m.source_system}${m.source_url ? ` — ${m.source_url}` : ''}`,
-        `Identifier: ${m.identifier}`,
-        `Score: ${hit.score.toFixed(4)} (semantic ${hit.vector_score.toFixed(3)}, ` +
+        `**${r.title || '(document not found in the curated directory)'}** (${r.date})`,
+        `${r.project} | ${r.content_type} | ${r.organizational_unit.join(', ')}`,
+        `Source: ${r.source.system} ${r.source.identifier}${r.source.url ? ` — ${r.source.url}` : ''}`,
+        `Document: ${r.document_id}`,
+        `Chunk: ${r.chunk_id}`,
+        `Score: ${r.score.toFixed(4)} (semantic ${hit.vector_score.toFixed(3)}, ` +
           `keyword ${hit.lexical_score.toFixed(3)})`,
         `Matched terms: ${hit.matched_terms.length ? hit.matched_terms.join(', ') : 'none'}`,
         ``,
-        m.chunk_text as string,
+        r.text,
         `---`,
       ].join('\n')
     })
@@ -122,13 +125,14 @@ server.tool(
       units: string[]
     }
 
+    const documents = await documentStore()
     const docs = new Map<string, Doc>()
     for (const item of await index.listItems()) {
       const m = item.metadata as Record<string, string | number>
-      const id = m.doc_id as string
+      const id = m.document_id as string
       if (docs.has(id)) continue
       docs.set(id, {
-        title: String(m.title ?? ''),
+        title: documents.get(id)?.document.title ?? '(document not found in the curated directory)',
         date: String(m.date ?? ''),
         content_type: String(m.content_type ?? ''),
         units: organizationalUnits(m),
