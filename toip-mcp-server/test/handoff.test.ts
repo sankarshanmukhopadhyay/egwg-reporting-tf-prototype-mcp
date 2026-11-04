@@ -13,6 +13,7 @@ import {
 } from '../src/chunks.js'
 import { loadDocuments, organizationalUnits, toSearchResult } from '../src/documents.js'
 import type { NormalizedDocument } from '../src/types.js'
+import { summarizeResolutions } from '../src/resolution-summary.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const examplePath = path.join(
@@ -151,4 +152,28 @@ test('inconsistent document identity is rejected rather than decorated with inco
     chunk_id: chunk.chunk_id,
     document_id: chunk.document_id,
   })
+})
+
+test('retrieval summaries count only resolved hits and their lexical matches', async () => {
+  const doc = await example()
+  const [chunk] = toEmbeddedChunks(doc)
+  const metadata = chunkMetadata(chunk)
+  const resolved = toSearchResult(metadata, 0.6, doc)
+  const missing = toSearchResult(metadata, 0.6, undefined)
+  const summary = summarizeResolutions([
+    { resolution: resolved, matched_terms: [] },
+    { resolution: resolved, matched_terms: ['trust'] },
+    { resolution: missing, matched_terms: ['trust'] },
+  ])
+  assert.deepEqual(summary, { resolvedCount: 2, matchedCount: 1, unresolvedCount: 1, exitCode: 0 })
+})
+
+test('all-unresolved retrieval fails in both output modes; ordinary empty search does not', async () => {
+  const [chunk] = toEmbeddedChunks(await example())
+  const missing = toSearchResult(chunkMetadata(chunk), 0.6, undefined)
+  assert.deepEqual(summarizeResolutions([
+    { resolution: missing, matched_terms: ['trust'] },
+  ]), { resolvedCount: 0, matchedCount: 0, unresolvedCount: 1, exitCode: 1 })
+  assert.deepEqual(summarizeResolutions([]),
+    { resolvedCount: 0, matchedCount: 0, unresolvedCount: 0, exitCode: 0 })
 })

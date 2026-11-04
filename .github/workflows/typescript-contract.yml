@@ -1,8 +1,8 @@
-name: MCP retrieval integrity
+name: TypeScript contract
 
 on:
   push:
-    branches: [main, assurance/retrieval-provenance-integrity]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

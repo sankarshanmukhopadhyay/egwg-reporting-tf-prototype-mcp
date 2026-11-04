@@ -125,6 +125,13 @@ global top 50. The match is a case-insensitive substring of any entry in
 and passed to vectra as an exact-match list, because vectra's metadata filters
 have no substring operator. The MCP `search` tool behaves identically.
 
+**CLI integrity status.** `npm run query -- --json "query"` prints structured
+`results` and `unresolved` entries. Both JSON and text modes exit with status 1
+when indexed hits exist but none resolves to a parent document. A genuinely
+empty search exits 0; mixed resolved/unresolved searches exit 0 while reporting
+withheld hits. The MCP `search` header counts only returned, resolved hits and
+reports withheld joins separately.
+
 ## Run
 
 ```bash

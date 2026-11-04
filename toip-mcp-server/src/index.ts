@@ -5,6 +5,7 @@ import { z } from 'zod'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { documentStore, organizationalUnits, toSearchResult } from './documents.js'
+import { summarizeResolutions } from './resolution-summary.js'
 import { matchesWg, search } from './search.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -48,16 +49,6 @@ server.tool(
       return { content: [{ type: 'text' as const, text: 'No results found.' }] }
     }
 
-    // Lead with what the query was reduced to and whether anything matched it
-    // lexically. A caller that sees every result matching no terms should
-    // treat the answers as loosely related rather than authoritative.
-    const matchedAny = hits.filter((h) => h.matched_terms.length > 0).length
-    const header = [
-      `Query terms: ${query_terms.join(', ') || '(none)'}`,
-      `${matchedAny} of ${hits.length} result(s) contain at least one query term.`,
-      '',
-    ].join('\n')
-
     const documents = await documentStore()
 
     const resolved = hits.map((hit) => ({
@@ -67,11 +58,19 @@ server.tool(
       ),
     }))
     const unresolved = resolved.filter((entry) => entry.resolution.status === 'unresolved')
+    const summary = summarizeResolutions(resolved.map(({ hit, resolution }) => ({
+      resolution, matched_terms: hit.matched_terms,
+    })))
+    const header = [
+      `Query terms: ${query_terms.join(', ') || '(none)'}`,
+      `${summary.matchedCount} of ${summary.resolvedCount} result(s) contain at least one query term.`,
+      '',
+    ].join('\n')
     const output = resolved.flatMap(({ hit, resolution }) => {
       if (resolution.status === 'unresolved') return []
       const r = resolution.result
       return [[
-        `**${r.title || '(document not found in the curated directory)'}** (${r.date})`,
+        `**${r.title || '(untitled)'}** (${r.date})`,
         `${r.project} | ${r.content_type} | ${r.organizational_unit.join(', ')}`,
         `Source: ${r.source.system} ${r.source.identifier}${r.source.url ? ` — ${r.source.url}` : ''}`,
         `Document: ${r.document_id}`,
