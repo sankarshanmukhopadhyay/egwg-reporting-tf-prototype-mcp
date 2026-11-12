@@ -6,12 +6,18 @@ This project provides a framework for collecting, normalizing, indexing, and ret
 
 Content is collected in its original format, transformed into a common document model, assigned a SAID, indexed for semantic search, and exposed through an MCP server.
 
-Supported and planned sources include:
+Currently implemented source parsers cover **Zoom** and **Confluence**. GitHub and YouTube are potential future sources, not supported parsers.
 
-- Zoom
-- Confluence
-- GitHub
-- YouTube
+---
+
+## Start here
+
+- **Try the prototype:** [End-to-end validation guide](docs/prototype-validation.md#run-the-demonstration) explains how to generate a synthetic Zoom/Confluence corpus and exercise ingestion, indexing, command-line search and a real MCP stdio client. No ToIP source credentials are needed.
+- **Inspect the result:** [Observed evidence and status](docs/prototype-validation.md#observed-results-and-disposition-2026-11-11) distinguishes the successful end-to-end test execution from the unresolved provenance defect.
+- **Understand the design:** [AGENTS.md](AGENTS.md) defines canonical data-model handoffs and architectural ownership. [Data generation](mcp_data_generation/README.md) and the [MCP server](toip-mcp-server/README.md) document their components.
+- **Contribute upstream:** [Issue #26](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26) tracks the full validation exercise, including the still-required approved real corpus and independent assessment.
+
+**Status:** A source-diverse *synthetic* end-to-end demonstration has passed on the fork. A missing-parent retrieval probe reproduced a provenance-integrity defect on the upstream baseline (tracked by [PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24)). A green demonstration workflow does not establish production readiness, source authenticity, or retrieval relevance on real ToIP material.
 
 ---
 
@@ -31,11 +37,7 @@ MCP Retrieval Layer
 
 The platform is organized around architectural workstreams rather than repository structure.
 
-For detailed architecture, data models, ownership boundaries, and contributor guidance, see:
-
-```text
-AGENTS.md
-```
+For architectural authority, canonical model definitions, ownership boundaries and contributor guidance, see [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -194,13 +196,7 @@ Support validation, retrieval testing, and benchmarking.
 
 ## Contributor Guidance
 
-Contributors should review:
-
-```text
-AGENTS.md
-```
-
-before making architectural, data model, indexing, or retrieval changes.
+Contributors should review [AGENTS.md](AGENTS.md) before making architectural, data-model, indexing, or retrieval changes.
 
 AGENTS.md contains:
 
@@ -209,3 +205,4 @@ AGENTS.md contains:
 - Ownership boundaries
 - Architectural principles
 - Contribution guidance
+

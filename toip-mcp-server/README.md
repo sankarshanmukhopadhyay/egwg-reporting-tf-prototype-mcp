@@ -6,9 +6,13 @@ pages. No API key required — embeddings run locally via `fastembed`.
 
 ## Setup
 
+For an existing checkout, use the committed lockfile:
+
 ```bash
-npm install
+npm ci
 ```
+
+To run the *whole* synthetic source-to-MCP demonstration, begin with the [repository validation guide](../docs/prototype-validation.md#run-the-demonstration) rather than running the server in isolation. That guide also explains the verified evidence and known missing-parent provenance limitation.
 
 ## Ingest
 
@@ -134,6 +138,11 @@ npm start
 Search results join each chunk to its curated document for the title, project
 and source, so the server reads the same curated directory as ingest. Set
 `TOIP_DATA_DIR` if it is not `../mcp_data_generation/data/curated`.
+**Important:** the `--data` argument to `npm run ingest` does not configure the
+separately started MCP server or CLI query. Set `TOIP_DATA_DIR` for those
+processes as well. On the pinned upstream baseline, a missing curated parent
+can be represented as an ordinary search result; see [the reproduced failure](../docs/prototype-validation.md#observed-results-and-disposition-2026-11-11)
+and [upstream PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24).
 
 ## Test
 
