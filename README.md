@@ -192,6 +192,15 @@ Support validation, retrieval testing, and benchmarking.
 
 ---
 
+## Temporal scope and historical questions
+
+This prototype indexes selected current representations; it does not implement
+historical as-of or bitemporal retrieval. The [temporal lifecycle assessment](docs/temporal-lifecycle.md)
+explains document identity, first-observation timestamps, supersession,
+retention limits, and the criteria for any future historical capability.
+
+---
+
 ## Contributor Guidance
 
 Contributors should review:
