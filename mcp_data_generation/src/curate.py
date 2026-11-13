@@ -37,7 +37,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 from src.py_saidify import py_saidify_urn
@@ -322,10 +324,15 @@ def _artifact_membership(registry_file: Path, catalog_dir: Path) -> dict[str, li
             record = json.loads(record_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError(f"artifact record missing or invalid for {key}") from exc
+        if not isinstance(record, dict):
+            raise ValueError(f"invalid artifact record for {key}")
         if record.get("artifact_id") != artifact_id or record.get("schema_version") != 1:
             raise ValueError(f"artifact identity mismatch for {key}")
-        if not any(isinstance(obs, dict) and obs.get("registry_path") == key
-                   for obs in record.get("observations", [])):
+        observations = record.get("observations")
+        if not isinstance(observations, list) or not any(
+            isinstance(obs, dict) and obs.get("registry_path") == key
+            for obs in observations
+        ):
             raise ValueError(f"source association not evidenced for {key}")
         saids = entry.get("document_saids")
         if not isinstance(saids, list):
@@ -439,6 +446,81 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _curate_v2_fresh(
+    processed_dir: Path, curated_dir: Path, membership: dict[str, list[str]],
+    *, keep_boilerplate: bool, dry_run: bool, quiet: bool,
+) -> int:
+    """Validate every v2 input before publishing a new output directory.
+
+    Staging in a sibling directory makes missing or contradictory provenance
+    fail without leaving a partially published corpus. The existing v1
+    incremental path is deliberately untouched.
+    """
+    if curated_dir.exists():
+        raise SystemExit(
+            "schema v2 requires a fresh --curated directory; "
+            "choose a new destination for deterministic regeneration"
+        )
+    paths = sorted(processed_dir.glob("*.json"))
+    if not paths:
+        raise SystemExit("schema v2 refuses to publish an empty corpus")
+    owners = {} if keep_boilerplate else boilerplate_owners(_iter_documents(paths))
+    planned: dict[str, str] = {}
+    names: dict[str, str] = {}
+    for path in paths:
+        try:
+            document = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SystemExit(f"schema v2 unreadable processed input: {path.name}") from exc
+        if not isinstance(document, dict):
+            raise SystemExit(f"schema v2 invalid processed input: {path.name}")
+        said = document.get("identifier")
+        if not isinstance(said, str) or not membership.get(said):
+            raise SystemExit(
+                f"schema v2 cannot establish contributing artifacts for {path.name}"
+            )
+        if owners:
+            content, removed, kept_whole = strip_boilerplate(document, owners)
+            if removed and not kept_whole:
+                document["content"] = content
+        try:
+            urn, curated = curate_document(
+                document, "", "", schema_version=2, artifact_ids=membership[said]
+            )
+            document_id = build_id(document)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise SystemExit(f"schema v2 cannot normalize {path.name}: {exc}") from exc
+        if document_id in names:
+            raise SystemExit(
+                f"schema v2 duplicate document id {document_id}: "
+                f"{path.name} and {names[document_id]}"
+            )
+        names[document_id] = path.name
+        planned[f"{document_id}.json"] = (
+            json.dumps(curated, indent=2, ensure_ascii=False) + "\n"
+        )
+        if not quiet:
+            print(f"validate {document_id} -> {urn}")
+    if dry_run:
+        print(f"validated {len(planned)} v2 document(s); no files written")
+        return 0
+
+    curated_dir.parent.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=".curated-v2-", dir=curated_dir.parent))
+    try:
+        for name, payload in planned.items():
+            (stage / name).write_text(payload, encoding="utf-8")
+        # Refuse an existing output even if it was created while staging.
+        if curated_dir.exists():
+            raise SystemExit("schema v2 output appeared during staging; refusing overwrite")
+        stage.rename(curated_dir)
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+    print(f"published {len(planned)} schema v2 document(s) to {curated_dir}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
@@ -452,25 +534,24 @@ def main(argv: list[str] | None = None) -> int:
     if curated_dir == processed_dir:
         raise SystemExit("--curated must differ from --processed")
 
-    sources = _source_index(registry_file)
-    membership: dict[str, list[str]] = {}
     if args.schema_version == 2:
         if args.artifact_catalog is None:
             raise SystemExit("schema v2 requires --artifact-catalog")
+        if args.prune:
+            raise SystemExit("schema v2 publishes a fresh directory; --prune is unsupported")
         try:
-            membership = _artifact_membership(registry_file, args.artifact_catalog.resolve())
+            membership = _artifact_membership(
+                registry_file, args.artifact_catalog.expanduser().resolve()
+            )
         except ValueError as exc:
             raise SystemExit(f"schema v2 source evidence unavailable: {exc}") from exc
-        # Prevent mixing v1 and v2 records in the same directory; use a fresh
-        # target for explicit migration and rebuild. No writes before this check.
-        if curated_dir.exists():
-            for existing in curated_dir.glob("*.json"):
-                try:
-                    prior = json.loads(existing.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError):
-                    raise SystemExit(f"schema v2 target contains invalid JSON: {existing}")
-                if not isinstance(prior, dict) or prior.get("schema_version") != 2:
-                    raise SystemExit("schema v2 requires a separate v2-only --curated output")
+        return _curate_v2_fresh(
+            processed_dir, curated_dir, membership,
+            keep_boilerplate=args.keep_boilerplate,
+            dry_run=args.dry_run, quiet=args.quiet,
+        )
+
+    sources = _source_index(registry_file)
 
     if not args.dry_run:
         curated_dir.mkdir(parents=True, exist_ok=True)
@@ -526,16 +607,7 @@ def main(argv: list[str] | None = None) -> int:
             path.stat().st_mtime, timezone.utc
         ).isoformat()
 
-        if args.schema_version == 2 and not membership.get(said):
-            raise SystemExit(
-                f"schema v2 cannot establish contributing artifacts for {path.name}; "
-                "no partial/empty provenance will be invented"
-            )
-        urn, curated = curate_document(
-            document, stamp, artifact_id,
-            schema_version=args.schema_version,
-            artifact_ids=membership.get(said) if args.schema_version == 2 else None,
-        )
+        urn, curated = curate_document(document, stamp, artifact_id)
         document_id = build_id(document)
 
         if document_id in ids:
