@@ -142,7 +142,10 @@ Search results join each chunk to its curated document for the title, project
 and source. The loader independently recalculates the complete v1 Normalized
 Document BLAKE3-256 URN SAID before accepting its metadata. A structurally
 valid document whose metadata, content or provenance was changed without a
-corresponding SAID is **withheld**. Together with the unresolved-join behavior
+corresponding SAID is **withheld**; the unresolved result reports
+`invalid_document_said` rather than falsely treating it as absent. Invalid
+records also do not appear as normal `list_documents` entries. Competing
+files claiming the same SAID are rejected together when one is invalid. Together with the unresolved-join behavior
 proposed in [PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24),
 this prevents altered curated fields from being presented as a resolved result.
 The check does **not** authenticate the original source or establish historical

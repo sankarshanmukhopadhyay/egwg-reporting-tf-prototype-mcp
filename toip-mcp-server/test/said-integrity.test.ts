@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isNormalizedDocument, toEmbeddedChunks, chunkMetadata } from '../src/chunks.js'
-import { loadDocuments, toSearchResult } from '../src/documents.js'
+import { loadDocumentState, loadDocuments, toSearchResult } from '../src/documents.js'
 import { verifyNormalizedSaid } from '../src/said.js'
 import type { NormalizedDocument } from '../src/types.js'
 
@@ -43,11 +43,12 @@ test('metadata, content and provenance mutation cannot be laundered as resolved 
       assert.equal(verifyNormalizedSaid(candidate), false)
       await fs.writeFile(path.join(dir, `candidate-${n}.json`), JSON.stringify(candidate))
     }
-    const loaded = await loadDocuments(dir)
-    assert.equal(loaded.size, 0)
-    const joined = toSearchResult(metadata, 0.8, loaded.get(original.identifier))
+    const state = await loadDocumentState(dir)
+    assert.equal(state.documents.size, 0)
+    assert.equal(state.invalidIds.has(original.identifier), true)
+    const joined = toSearchResult(metadata, 0.8, state.documents.get(original.identifier), state.invalidIds)
     assert.equal(joined.status, 'unresolved')
-    assert.equal(joined.status === 'unresolved' && joined.reason, 'missing_document')
+    assert.equal(joined.status === 'unresolved' && joined.reason, 'invalid_document_said')
   } finally {
     await fs.rm(dir, { recursive: true, force: true })
   }
@@ -66,4 +67,29 @@ test('valid full document passes and is reduced to safe retrieval metadata', asy
   } finally {
     await fs.rm(dir, { recursive: true, force: true })
   }
+})
+
+test('an invalid competing record poisons an otherwise valid claimed SAID', async () => {
+  const doc = await example()
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'toip-duplicate-said-'))
+  try {
+    await fs.writeFile(path.join(dir, 'a-valid.json'), JSON.stringify(doc))
+    await fs.writeFile(path.join(dir, 'z-invalid.json'),
+      JSON.stringify({ ...doc, document: { ...doc.document, title: 'Forged' } }))
+    const state = await loadDocumentState(dir)
+    assert.equal(state.documents.has(doc.identifier), false)
+    assert.equal(state.invalidIds.has(doc.identifier), true)
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('missing document and invalid SAID have distinct unresolved reasons', async () => {
+  const doc = await example()
+  const [chunk] = toEmbeddedChunks(doc)
+  const metadata = chunkMetadata(chunk)
+  const missing = toSearchResult(metadata, 0.1, undefined)
+  const invalid = toSearchResult(metadata, 0.1, undefined, new Set([doc.identifier]))
+  assert.equal(missing.status === 'unresolved' && missing.reason, 'missing_document')
+  assert.equal(invalid.status === 'unresolved' && invalid.reason, 'invalid_document_said')
 })

@@ -58,7 +58,7 @@ export type SearchResolution =
   | { status: 'resolved'; result: SearchResult }
   | {
       status: 'unresolved'
-      reason: 'missing_document' | 'document_identifier_mismatch'
+      reason: 'missing_document' | 'document_identifier_mismatch' | 'invalid_document_said'
       document_id: string
       chunk_id: string
     }
