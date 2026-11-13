@@ -47,7 +47,9 @@ old version is left behind, just like a document removed from curation. A full
 run reports how many indexed documents are no longer in the curated directory;
 `--prune` deletes them. `--prune` refuses to run with `--limit`, because a
 limited run never sees the rest of the corpus and would prune documents that
-are still there.
+are still there. For the same reason it refuses to prune when any curated file
+could not be read or is not a valid Normalized Document; those files are
+skipped with a warning.
 
 `--rebuild` deletes the index and starts clean.
 
@@ -229,4 +231,4 @@ resolved document because a source URL is not mandatory.
 This checks the document join, **not** Raw Artifact integrity or the
 authenticity of source material. Raw Artifact joins are not implemented yet.
 This behavior is intentionally scoped to the normalized handoff proposed in
-PR #22; see issues #8 and #12.
+PR #24; see issues #8 and #12.
