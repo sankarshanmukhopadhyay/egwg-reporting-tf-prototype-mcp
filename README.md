@@ -124,6 +124,10 @@ The [Document identity workflow](.github/workflows/document-identity.yml) runs t
 
 [Issue #26](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26) tracks reproducible end-to-end validation: a pinned baseline, source-diverse corpus, real MCP client calls, failure cases and an evidence-backed disposition. Independent synthetic testing has identified unresolved provenance and lifecycle defects. **A green component or synthetic test run must not be read as a production-assurance PASS.** Approved real-source relevance evaluation and independent acceptance remain separate requirements.
 
+### Reproducible synthetic end-to-end assessment
+
+The [prototype validation runbook](docs/prototype-validation.md) provides an isolated Zoom/Confluence fixture, full Python and TypeScript checks, a real stdio MCP client probe, and adverse provenance tests. The workflow [`prototype-e2e.yml`](.github/workflows/prototype-e2e.yml) captures diagnostics; green execution does **not** turn recorded material failures into PASS. See [issue #26](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26) for the unresolved real-corpus and human-adjudication requirement.
+
 ## Current priorities and how to contribute
 
 The workstream issues organize implementation responsibility. They should be read with [`AGENTS.md`](AGENTS.md), rather than treating the directory layout as the architecture:
