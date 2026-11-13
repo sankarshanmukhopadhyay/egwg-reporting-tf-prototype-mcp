@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { isNormalizedDocument } from './chunks.js'
+import { verifyNormalizedSaid } from './said.js'
 import type { NormalizedDocument, SearchResolution } from './types.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -40,6 +41,10 @@ export async function loadDocuments(dir: string): Promise<Map<string, DocumentHe
       continue
     }
     if (!isNormalizedDocument(parsed)) continue
+    if (!verifyNormalizedSaid(parsed)) {
+      console.error(`warning: withholding curated document with invalid SAID: ${name}`)
+      continue
+    }
     documents.set(parsed.identifier, {
       schema_version: parsed.schema_version,
       identifier: parsed.identifier,

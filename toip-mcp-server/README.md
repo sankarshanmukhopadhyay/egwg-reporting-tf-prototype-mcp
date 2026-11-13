@@ -139,7 +139,16 @@ npm start
 ```
 
 Search results join each chunk to its curated document for the title, project
-and source, so the server reads the same curated directory as ingest. Set
+and source. The loader independently recalculates the complete v1 Normalized
+Document BLAKE3-256 URN SAID before accepting its metadata. A structurally
+valid document whose metadata, content or provenance was changed without a
+corresponding SAID is **withheld**. Together with the unresolved-join behavior
+proposed in [PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24),
+this prevents altered curated fields from being presented as a resolved result.
+The check does **not** authenticate the original source or establish historical
+validity. Verification happens at document-store load; restart long-running
+server processes after curation changes, and rebuild/prune stale indexes.
+The server reads the same curated directory as ingest. Set
 `TOIP_DATA_DIR` if it is not `../mcp_data_generation/data/curated`.
 
 ## Test
