@@ -18,23 +18,31 @@ The artifact record names file bytes. The fields accompanying an acquisition obs
 {
   "schema_version": 1,
   "artifact_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "file_name": "recording.vtt",
-  "source_system": "Zoom",
-  "source_identifier": "meeting-123",
-  "source_url": null,
-  "source_last_modified": null,
-  "collected_at": "2026-10-01T15:05:23Z",
-  "provenance_attribution": {
-    "artifact_id": "collector_observation",
-    "source_identifier": "authoritative_source",
-    "source_url": "unknown",
-    "source_last_modified": "unknown",
-    "collected_at": "collector_observation"
-  }
+  "observations": [
+    {
+      "registry_path": "zoom/recording.vtt",
+      "file_name": "recording.vtt",
+      "source_system": "zoom",
+      "source_identifier": null,
+      "source_url": null,
+      "source_last_modified": null,
+      "collected_at": null,
+      "registry_first_processed_at": "2026-10-01T15:05:23Z",
+      "provenance_attribution": {
+        "artifact_id": "collector_observation",
+        "source_system": "local_fallback",
+        "source_identifier": "unknown",
+        "source_url": "unknown",
+        "source_last_modified": "unknown",
+        "collected_at": "unknown",
+        "registry_first_processed_at": "collector_observation"
+      }
+    }
+  ]
 }
 ```
 
-This is an acquisition metadata record *about* the raw bytes, not a replacement for those bytes. An implementation must make the bytes reachable for integrity verification or explicitly report them unavailable. It must not silently equate a filename, collection folder or a source-object identifier with the content hash. Metadata must not be silently overwritten when observations differ; preservation/retention of multiple observations is a separate acquisition lifecycle decision. `schema_version: 1` here versions the newly introduced Raw Artifact metadata format independently of normalized schema v2.
+This is an acquisition metadata record *about* the raw bytes, not a replacement for those bytes. The example follows the proposed acquisition-side export in [PR #32](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/32): a single digest-keyed record may preserve multiple distinct observations. The registry path is a local collection reference, not a source-system identifier; the registry's first-processing timestamp is not a collection timestamp. Source identifiers and source URLs must remain unknown when no acquisition evidence exists. This format is a candidate pending upstream review, not an assertion of complete evidence. An implementation must make the bytes reachable for integrity verification or explicitly report them unavailable. It must not silently equate a filename, collection folder or a source-object identifier with the content hash. Metadata must not be silently overwritten when observations differ; preservation/retention of multiple observations is a separate acquisition lifecycle decision. `schema_version: 1` here versions the newly introduced Raw Artifact metadata format independently of normalized schema v2.
 
 Allowed attribution categories: `authoritative_source` (reported directly by the designated source interface, without independent authenticity verification), `collector_observation` (recorded by acquisition), `local_fallback` (inferred from local filesystem or other fallback), `manual_entry` (human supplied), and `unknown` (origin absent or indeterminate). Attribution states **where a value came from**, not whether that value was verified. A missing value uses `null` with `unknown`; an empty string must not masquerade as successful attribution. Future verification claims require separate property, method, and evidence references.
 
