@@ -58,7 +58,7 @@ This fork now runs **isolated negative-case probes** in addition to the initial 
 | Altered curated metadata with unchanged SAID accepted on retrieval | Manthan; independently probed through fork stdio MCP client | Material integrity failure: a SAID-like reference is not verified integrity |
 | Missing ingestion registry changes identifiers and suppresses artifact linkage | Manthan; independently probed in fork normalization workflow | Material provenance/identity-continuity failure |
 | Stale chunks after edits; missing data directory | Manthan's report (fork also separately exercises missing-parent corpus) | Reported failures; full Manthan test matrix not yet independently incorporated |
-| Malformed curated JSON interrupts ingest | Manthan's report | Reported on the pinned baseline; upstream [PR #28](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/28) is separate, not implicitly assumed merged |
+| Malformed curated JSON interrupts ingest | Manthan's report | Reported on the pinned baseline; [PR #28](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/28) subsequently merged into upstream main, but is absent from the pinned control |
 | Empty query, unknown WG, nonlexical query, listing identifiers | Manthan's report | Interface and evidence-interpretation limitations; do not convert weak candidate retrieval into an answer-quality claim |
 
 The fork probes deliberately keep each altered input in an isolated temporary directory or independent MCP process. They do not change production implementation, trusted fixtures, or the original index. The external report's distinct observations must remain attributed to its author; automated reproductions are credited to the fork harness rather than misrepresented as Manthan's original scripts.
@@ -74,7 +74,7 @@ This is a **validation disposition**, not issue closure or a claim of upstream a
 | Acquisition-to-retrieval pipeline | PASS for generated Zoom/Confluence fixtures only |
 | Normalized records, verified SAIDs, unchanged rerun | PASS for unmodified generated fixtures; integrity/registry adverse failures recorded separately |
 | Human-adjudicated real-corpus retrieval | NOT DONE; no authorization or real corpus available |
-| Actual SDK MCP calls, filtering, pagination, errors | PASS on targeted fork paths; broader manual matrix reported by Manthan, scripts/logs awaited |
+| Actual SDK MCP calls, filtering, pagination, errors | PASS on targeted fork paths; broader manual matrix reported by Manthan, [scripts/logs supplied](https://gist.github.com/ManthanNimodiya/022069a5186d763b4686cf4e22265449), independent replay pending |
 | Attribution and adverse lineage/index behavior | PARTIAL: reproducible failures for important boundaries; not all negative cases automated |
 | Independent assessment of PRs #23–#25 | PARTIAL: mapped by responsibility, not evaluated against their reviewed heads |
 | Consolidated report and disposition | PARTIAL: synthetic evidence and known defects consolidated here; independent governance acceptance and real-corpus adjudication remain |
