@@ -47,7 +47,9 @@ old version is left behind, just like a document removed from curation. A full
 run reports how many indexed documents are no longer in the curated directory;
 `--prune` deletes them. `--prune` refuses to run with `--limit`, because a
 limited run never sees the rest of the corpus and would prune documents that
-are still there.
+are still there. For the same reason it refuses to prune when any curated file
+could not be read or is not a valid Normalized Document; those files are
+skipped with a warning.
 
 `--rebuild` deletes the index and starts clean.
 
@@ -125,12 +127,7 @@ global top 50. The match is a case-insensitive substring of any entry in
 and passed to vectra as an exact-match list, because vectra's metadata filters
 have no substring operator. The MCP `search` tool behaves identically.
 
-**CLI integrity status.** `npm run query -- --json "query"` prints structured
-`results` and `unresolved` entries. Both JSON and text modes exit with status 1
-when indexed hits exist but none resolves to a parent document. A genuinely
-empty search exits 0; mixed resolved/unresolved searches exit 0 while reporting
-withheld hits. The MCP `search` header counts only returned, resolved hits and
-reports withheld joins separately.
+**CLI provenance status (candidate in PR #24):** `npm run query -- --json "query"` reports separate `results` and `unresolved` entries. Both text and JSON modes return exit status 1 when indexed hits exist but none resolves. Empty searches exit 0; mixed results warn while returning the resolved subset. The MCP `search` response likewise reports withheld joins without counting them as successful results.
 
 ## Run
 
@@ -139,19 +136,7 @@ npm start
 ```
 
 Search results join each chunk to its curated document for the title, project
-and source. The loader independently recalculates the complete v1 Normalized
-Document BLAKE3-256 URN SAID before accepting its metadata. A structurally
-valid document whose metadata, content or provenance was changed without a
-corresponding SAID is **withheld**; the unresolved result reports
-`invalid_document_said` rather than falsely treating it as absent. Invalid
-records also do not appear as normal `list_documents` entries. Competing
-files claiming the same SAID are rejected together when one is invalid. Together with the unresolved-join behavior
-proposed in [PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24),
-this prevents altered curated fields from being presented as a resolved result.
-The check does **not** authenticate the original source or establish historical
-validity. Verification happens at document-store load; restart long-running
-server processes after curation changes, and rebuild/prune stale indexes.
-The server reads the same curated directory as ingest. Set
+and source, so the server reads the same curated directory as ingest. Set
 `TOIP_DATA_DIR` if it is not `../mcp_data_generation/data/curated`.
 
 ## Test
@@ -223,22 +208,20 @@ The index carries only what a chunk needs for search and filtering. Title,
 project and source come from the curated document, so the index is not a
 source of truth for document metadata and can be rebuilt at any time.
 
-## Retrieval integrity when a parent document is unavailable
+## Candidate retrieval assurance (PRs #24 and #36)
 
-The search index is derived. A vector hit is not, by itself, a
-provenance-resolved document. Retrieval joins each hit's `document_id`
-to the curated document store. If the parent is absent or has a different
-identifier, that hit is **withheld**, not presented with blank source fields.
+On the proposed retrieval branch, a vector hit is insufficient to establish a
+usable provenance join. An absent or mismatched parent is withheld under #24.
+The follow-up #36 recalculates each complete v1 Normalized Document's
+BLAKE3-256 URN SAID when the document store loads; invalid identifiers and
+conflicting duplicate copies are withheld and reported as
+`invalid_document_said` rather than `missing_document`. Affected documents
+do not appear as ordinary `list_documents` entries. CLI and MCP search share
+these outcomes. No automated index repair occurs, and the long-running server
+must be restarted after changing the curated corpus because it caches document
+metadata.
 
-The MCP `search` response explicitly reports the count and reason for
-unresolved joins, even when other hits can be returned. If every hit is
-unresolved, the response has `isError: true` instead of implying an
-ordinary no-results search. This does not automatically alter the index:
-run a full ingest and review stale documents; `--prune` is an explicit
-maintenance operation. A missing source URL alone does not invalidate a
-resolved document because a source URL is not mandatory.
-
-This checks the document join, **not** Raw Artifact integrity or the
-authenticity of source material. Raw Artifact joins are not implemented yet.
-This behavior is intentionally scoped to the normalized handoff proposed in
-PR #22; see issues #8 and #12.
+This establishes agreement with the claimed content address, **not**
+source authenticity, source-system authorization, historical validity, or the
+integrity of stored vector chunks. Upstream review governs adoption; neither
+feature is implemented on the authoritative `main` until merged.
