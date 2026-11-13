@@ -292,8 +292,55 @@ def _source_index(registry_file: Path) -> dict[str, tuple[str, str]]:
     return sources
 
 
+
+def _artifact_membership(registry_file: Path, catalog_dir: Path) -> dict[str, list[str]]:
+    """Map processed document SAIDs to all *registered contributing* file digests.
+
+    This uses explicit ingestion relationships, never filename or meeting-ID
+    proximity. The catalog is required but does not authenticate a source.
+    """
+    if not registry_file.is_file():
+        raise ValueError(f"registry is unavailable: {registry_file}")
+    if not catalog_dir.is_dir():
+        raise ValueError(f"artifact catalog is unavailable: {catalog_dir}")
+    try:
+        registry = json.loads(registry_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("could not read artifact membership registry") from exc
+    if not isinstance(registry, dict):
+        raise ValueError("registry must be a JSON object")
+    membership: dict[str, set[str]] = {}
+    for key, entry in registry.items():
+        if not isinstance(entry, dict):
+            raise ValueError(f"invalid registry entry: {key}")
+        digest = entry.get("file_hash")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError(f"missing/invalid source digest for {key}")
+        artifact_id = f"sha256:{digest}"
+        record_path = catalog_dir / f"{digest}.json"
+        try:
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"artifact record missing or invalid for {key}") from exc
+        if record.get("artifact_id") != artifact_id or record.get("schema_version") != 1:
+            raise ValueError(f"artifact identity mismatch for {key}")
+        if not any(isinstance(obs, dict) and obs.get("registry_path") == key
+                   for obs in record.get("observations", [])):
+            raise ValueError(f"source association not evidenced for {key}")
+        saids = entry.get("document_saids")
+        if not isinstance(saids, list):
+            legacy = entry.get("document_said")
+            saids = [legacy] if legacy else []
+        for said in saids:
+            if not isinstance(said, str) or not said:
+                raise ValueError(f"invalid processed document identifier for {key}")
+            membership.setdefault(said, set()).add(artifact_id)
+    return {said: sorted(ids) for said, ids in membership.items()}
+
+
 def curate_document(
-    document: dict, collected_at: str, artifact_id: str
+    document: dict, collected_at: str, artifact_id: str,
+    *, schema_version: int = 1, artifact_ids: list[str] | None = None
 ) -> tuple[str, dict]:
     """Return (urn, curated document) for one processed document.
 
@@ -301,8 +348,16 @@ def curate_document(
     dict, so a stable order keeps the SAID stable.
     """
 
+    if schema_version not in (1, 2):
+        raise ValueError("unsupported normalized schema version")
+    if schema_version == 2 and (not artifact_ids or not all(
+        isinstance(artifact, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", artifact)
+        for artifact in artifact_ids
+    )):
+        raise ValueError("v2 requires evidenced, nonempty artifact identifiers")
+
     curated = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "identifier": "",
         "document": {
             "project": document.get("project", ""),
@@ -310,13 +365,17 @@ def curate_document(
             "title": document.get("title", ""),
             "date": document.get("date", ""),
         },
-        "provenance": {
-            "artifact_id": artifact_id,
-            "source_system": document.get("source_system", ""),
-            "source_identifier": document.get("source_identifier", ""),
-            "source_url": document.get("source_url", ""),
-            "collected_at": collected_at,
-        },
+        "provenance": (
+            {"artifact_ids": sorted(set(artifact_ids))}
+            if schema_version == 2
+            else {
+                "artifact_id": artifact_id,
+                "source_system": document.get("source_system", ""),
+                "source_identifier": document.get("source_identifier", ""),
+                "source_url": document.get("source_url", ""),
+                "collected_at": collected_at,
+            }
+        ),
         "content": {
             "content_type": document.get("content_type", ""),
             "text": document.get("content", ""),
@@ -348,6 +407,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--registry",
         default=os.environ.get("MCP_REGISTRY_FILE", DEFAULT_REGISTRY_FILE),
         help="ingestion registry, read for collected_at and artifact_id",
+    )
+    parser.add_argument(
+        "--schema-version",
+        type=int, choices=(1, 2), default=1,
+        help="normalized document format (default: 1; v2 opt-in and requires artifact catalog)",
+    )
+    parser.add_argument(
+        "--artifact-catalog", type=Path,
+        help="verified acquisition catalog directory, required for schema v2",
     )
     parser.add_argument(
         "--prune",
@@ -385,6 +453,24 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--curated must differ from --processed")
 
     sources = _source_index(registry_file)
+    membership: dict[str, list[str]] = {}
+    if args.schema_version == 2:
+        if args.artifact_catalog is None:
+            raise SystemExit("schema v2 requires --artifact-catalog")
+        try:
+            membership = _artifact_membership(registry_file, args.artifact_catalog.resolve())
+        except ValueError as exc:
+            raise SystemExit(f"schema v2 source evidence unavailable: {exc}") from exc
+        # Prevent mixing v1 and v2 records in the same directory; use a fresh
+        # target for explicit migration and rebuild. No writes before this check.
+        if curated_dir.exists():
+            for existing in curated_dir.glob("*.json"):
+                try:
+                    prior = json.loads(existing.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    raise SystemExit(f"schema v2 target contains invalid JSON: {existing}")
+                if not isinstance(prior, dict) or prior.get("schema_version") != 2:
+                    raise SystemExit("schema v2 requires a separate v2-only --curated output")
 
     if not args.dry_run:
         curated_dir.mkdir(parents=True, exist_ok=True)
@@ -440,7 +526,16 @@ def main(argv: list[str] | None = None) -> int:
             path.stat().st_mtime, timezone.utc
         ).isoformat()
 
-        urn, curated = curate_document(document, stamp, artifact_id)
+        if args.schema_version == 2 and not membership.get(said):
+            raise SystemExit(
+                f"schema v2 cannot establish contributing artifacts for {path.name}; "
+                "no partial/empty provenance will be invented"
+            )
+        urn, curated = curate_document(
+            document, stamp, artifact_id,
+            schema_version=args.schema_version,
+            artifact_ids=membership.get(said) if args.schema_version == 2 else None,
+        )
         document_id = build_id(document)
 
         if document_id in ids:
