@@ -4,7 +4,8 @@ import { LocalIndex } from 'vectra'
 import { z } from 'zod'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { documentStore, invalidDocumentIds, organizationalUnits, toSearchResult } from './documents.js'
+import { documentStore, invalidDocumentIds, toSearchResult } from './documents.js'
+import { summarizeIndexedDocuments } from './document-listing.js'
 import { summarizeResolutions } from './resolution-summary.js'
 import { matchesWg, search } from './search.js'
 
@@ -131,31 +132,10 @@ server.tool(
       }
     }
 
-    interface Doc {
-      title: string
-      date: string
-      content_type: string
-      units: string[]
-    }
-
     const [documents, invalidIds] = await Promise.all([documentStore(), invalidDocumentIds()])
-    const docs = new Map<string, Doc>()
-    let withheld = 0
-    for (const item of await index.listItems()) {
-      const m = item.metadata as Record<string, string | number>
-      const id = m.document_id as string
-      if (docs.has(id)) continue
-      if (!documents.has(id)) {
-        withheld++
-        continue
-      }
-      docs.set(id, {
-        title: documents.get(id)!.document.title,
-        date: String(m.date ?? ''),
-        content_type: String(m.content_type ?? ''),
-        units: organizationalUnits(m),
-      })
-    }
+    const { docs, withheldIds, allWithheld } = summarizeIndexedDocuments(
+      await index.listItems(), documents
+    )
 
     const wantedType = content_type?.toLowerCase()
     const matching = [...docs.values()]
@@ -170,7 +150,7 @@ server.tool(
       ...(content_type ? [`content type "${content_type}"`] : []),
     ]
     const header = [
-      ...(withheld ? [`Retrieval integrity: ${withheld} indexed document(s) withheld (${[...invalidIds].length} invalid document identifier(s) observed in curated files).`] : []),
+      ...(withheldIds.size ? [`Retrieval integrity: ${withheldIds.size} indexed document(s) withheld (${invalidIds.size} invalid document identifier(s) observed in curated files).`] : []),
       `${matching.length} of ${docs.size} documents` +
         (filters.length ? ` match ${filters.join(' and ')}` : ''),
       page.length
@@ -188,6 +168,7 @@ server.tool(
 
     return {
       content: [{ type: 'text' as const, text: header + lines.join('\n') }],
+      ...(allWithheld ? { isError: true } : {}),
     }
   }
 )
