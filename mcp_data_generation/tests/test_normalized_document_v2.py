@@ -122,18 +122,42 @@ class NormalizedV2Tests(CacheFixture):
             self.export_catalog()
         self.assertFalse(self.curated_v2.exists())
 
-    def test_late_invalid_input_cannot_publish_partial_corpus(self):
+    def test_stale_processed_cache_entries_do_not_block_current_v2_curation(self):
         self.export_catalog()
         (self.processed / "zz-invalid.json").write_text("{}", encoding="utf-8")
-        with self.assertRaisesRegex(SystemExit, "cannot establish contributing artifacts"):
+        (self.processed / "zz-unreadable.json").write_text("{", encoding="utf-8")
+        doc = self.produce()
+        self.assertEqual(doc["schema_version"], 2)
+        self.assertTrue(py_verify_urn(doc, doc["identifier"], label="identifier"))
+
+    def test_missing_registered_processed_document_fails_before_publication(self):
+        self.export_catalog()
+        (said,) = self.saids()
+        (self.processed / f"{said}.json").unlink()
+        with self.assertRaisesRegex(SystemExit, "missing from the processed tree"):
             self.produce()
         self.assertFalse(self.curated_v2.exists())
-        self.assertFalse(list(self.curated_v2.parent.glob(".curated-v2-*")))
 
-    def test_unreadable_input_cannot_publish_partial_corpus(self):
+    def test_source_revision_without_pruning_selects_current_v2_document(self):
+        self.transcript.write_text(
+            self.transcript.read_text(encoding="utf-8")
+            + "\\n3\\n00:00:10.000 --> 00:00:12.000\\nNEW_SOURCE_REVISION_MARKER\\n",
+            encoding="utf-8",
+        )
+        self.ingest()
+        self.assertGreaterEqual(len(list(self.processed.glob("*.json"))), 2)
         self.export_catalog()
-        (self.processed / "zz-invalid.json").write_text("{", encoding="utf-8")
-        with self.assertRaisesRegex(SystemExit, "unreadable processed input"):
+        doc = self.produce()
+        self.assertIn("NEW_SOURCE_REVISION_MARKER", doc["content"]["text"])
+        self.assertTrue(py_verify_urn(doc, doc["identifier"], label="identifier"))
+
+    def test_missing_processing_timestamp_fails_before_v2_publication(self):
+        self.export_catalog()
+        registry = self.registry()
+        key = next(iter(registry))
+        registry[key].pop("processed_at")
+        self.registry_file.write_text(json.dumps(registry), encoding="utf-8")
+        with self.assertRaisesRegex(SystemExit, "source evidence unavailable"):
             self.produce()
         self.assertFalse(self.curated_v2.exists())
 
