@@ -216,10 +216,17 @@ The follow-up #36 recalculates each complete v1 Normalized Document's
 BLAKE3-256 URN SAID when the document store loads; invalid identifiers and
 conflicting duplicate copies are withheld and reported as
 `invalid_document_said` rather than `missing_document`. Affected documents
-do not appear as ordinary `list_documents` entries. CLI and MCP search share
+do not appear as ordinary `list_documents` entries. The listing counts distinct
+withheld document identifiers, not their indexed chunks, and returns an MCP
+error when an existing index has no resolvable documents. Empty indexes and
+filter-only no-match results are not integrity errors. CLI and MCP search share
 these outcomes. No automated index repair occurs, and the long-running server
 must be restarted after changing the curated corpus because it caches document
 metadata.
+
+JSON key order is part of the v1 SAID identity. Reformatting that sorts object
+keys changes the computed SAID and causes the document to be withheld until
+it is regenerated with the canonical Python SAID process and reindexed.
 
 This establishes agreement with the claimed content address, **not**
 source authenticity, source-system authorization, historical validity, or the
