@@ -56,7 +56,7 @@ class NormalizedV2Tests(CacheFixture):
         registry[path.relative_to(self.raw).as_posix()] = {
             "file_hash": digest,
             "processed_at": "2026-10-02T00:00:00+00:00",
-            "document_saids": [processed_said],
+            "document_saids": [processed_said] if processed_said else [],
         }
         self.registry_file.write_text(json.dumps(registry), encoding="utf-8")
         return f"sha256:{digest}"
@@ -77,7 +77,7 @@ class NormalizedV2Tests(CacheFixture):
     def test_multiple_explicit_sources_sorted_and_unrelated_source_excluded(self):
         (said,) = self.saids()
         extra = self.register_extra("second.vtt", b"a second contributing file", said)
-        unrelated = self.register_extra("unrelated.vtt", b"separate content", "urn:said:unrelated")
+        unrelated = self.register_extra("unrelated.vtt", b"separate content", None)
         self.export_catalog()
         document = self.produce()
         original = f"sha256:{hashlib.sha256(self.transcript.read_bytes()).hexdigest()}"
