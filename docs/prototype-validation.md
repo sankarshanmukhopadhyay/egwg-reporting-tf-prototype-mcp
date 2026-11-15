@@ -43,6 +43,18 @@ negative-case evidence; this paragraph reports the earlier baseline run.
 
 This result describes the tested commit, not future changes. Recheck Actions on any subsequent review head.
 
+### Current-main regression disposition (November 16, 2026)
+
+The source baseline has advanced beyond the historical pinned run. Current
+registry-aware curation refuses a missing or invalid ingestion registry without
+publishing curated documents. The earlier missing-registry normalization defect
+is therefore a historical observation, not an expected failure on the current
+branch. The negative-case probe now asserts the fail-closed behavior and treats
+unexpected publication as a FAIL. The historical missing-parent retrieval
+observation remains separately scoped to its recorded baseline, with corrective
+work proposed by PR #24. Neither correction establishes real-corpus relevance
+or independent issue #26 acceptance.
+
 ## Consolidated evidence (November 12, 2026)
 
 The existing CI-backed demonstration and [ManthanNimodiya's independent issue #26 assessment](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26#issuecomment-6817798276) exercised the same pinned upstream commit, but different synthetic corpora, runtimes and test matrices. **The observations are complementary, not interchangeable.** Manthan tested 8 documents/11 chunks using Node 22, Python 3.13 and 31 SDK calls. This fork's smaller repeatable fixture uses 3 documents/3 chunks with Node 24/Python 3.12. Neither evaluated authorized real-world source content, and his [script and logs](https://gist.github.com/ManthanNimodiya/022069a5186d763b4686cf4e22265449) have since been supplied for independent reproduction, but have not been executed by this fork's CI.
@@ -140,7 +152,7 @@ TOIP_DEMO_OUTPUT=../.prototype-demo node test/prototype-client.mjs
 directory. To rerun from scratch, select a **new empty output directory** and
 set `TOIP_DEMO_OUTPUT` consistently for the Node probe. Keep `TOIP_DATA_DIR` set for direct CLI queries, because ingestion's `--data` option does **not** persist a query-time data-directory setting. The MCP-client probe sets its own corpus path from `TOIP_DEMO_OUTPUT` and invokes the compiled server. Do not point these commands at production data or use `--prune` on an actual corpus.
 
-After generating the fixture, run `python -m tests.prototype_failures --output ../.prototype-demo` **from `mcp_data_generation`** to reproduce normalization failures. This command leaves the baseline files untouched and writes a separate diagnostic report; the workflow invokes it automatically.
+After generating the fixture, run `python -m tests.prototype_failures --output ../.prototype-demo` **from `mcp_data_generation`** to test historical failure boundaries against current behavior. This command leaves the baseline files untouched and writes a separate diagnostic report; the workflow invokes it automatically.
 
 The demonstration uses the existing generated fixture builders from
 `mcp_data_generation/tests/fixtures.py`: one synthetic Zoom transcript and
@@ -153,7 +165,7 @@ redistribute meeting transcripts or Confluence exports.
 sources, verified SAIDs, curated-output hashes and unchanged ingest/curation
 reruns. `mcp-client-report.json` records tool discovery, pagination, filters,
 retrieval, malformed requests, empty paths and adverse provenance probes.
-`normalization-failures.json` records isolated normalization lifecycle failures. GitHub Actions also
+`normalization-failures.json` records isolated normalization lifecycle checks, distinguishing regressions still observed from defects now rejected. GitHub Actions also
 uploads the synthetic CLI output as `query.json`.
 
 The workflow publishes the four synthetic evidence files under its **prototype-e2e-evidence** artifact (14-day retention); the files also remain under `.prototype-demo/` when run locally:
@@ -163,7 +175,7 @@ The workflow publishes the four synthetic evidence files under its **prototype-e
 | `manifest.json` | Input hashes and source types, curated counts, verified SAIDs, rerun stability and curated hashes | Authenticity, consent or real-source coverage |
 | `query.json` | CLI result structure, identifiers and source fields through the actual retrieval implementation | Semantic correctness of the passages or source authenticity |
 | `mcp-client-report.json` | Actual SDK/stdio tool discovery, search, listing/filter/pagination checks, invalid request cases, missing-parent and metadata-tampering observations | Conformance across other MCP clients or production assurance |
-| `normalization-failures.json` | Isolated source-revision and missing-registry reproductions using actual normalization entry points | Corrected behavior, source authenticity, or full corpus lifecycle coverage |
+| `normalization-failures.json` | Isolated source-revision and missing-registry checks using actual normalization entry points | Source authenticity or full corpus lifecycle coverage |
 
 Reports use these **check outcomes**:
 
