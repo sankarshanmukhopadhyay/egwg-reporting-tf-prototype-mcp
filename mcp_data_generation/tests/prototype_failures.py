@@ -38,12 +38,15 @@ def run(output):
         base = Path(temp)
         # A missing registry is not equivalent to valid source metadata.
         missing = base / "missing-registry"
-        missing_result = curate.main([
-            "--processed", str(output / "processed"),
-            "--curated", str(missing),
-            "--registry", str(base / "nonexistent-registry.json"),
-            "--quiet",
-        ])
+        try:
+            missing_result = curate.main([
+                "--processed", str(output / "processed"),
+                "--curated", str(missing),
+                "--registry", str(base / "nonexistent-registry.json"),
+                "--quiet",
+            ])
+        except SystemExit as exc:
+            missing_result = exc.code
         if missing_result == 0 or docs(missing):
             checks["missing_registry_provenance"] = (
                 "FAIL: missing registry was accepted or emitted curated records")
