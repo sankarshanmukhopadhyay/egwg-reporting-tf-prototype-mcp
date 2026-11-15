@@ -38,16 +38,18 @@ def run(output):
         base = Path(temp)
         # A missing registry is not equivalent to valid source metadata.
         missing = base / "missing-registry"
-        curate_at(output / "processed", missing, base / "nonexistent-registry.json")
-        changed = docs(missing)
-        missing_artifact = bool(changed) and all(
-            not d["provenance"].get("artifact_id") for d in changed)
-        changed_identity = {d["identifier"] for d in changed} != {
-            d["identifier"] for d in baseline}
-        checks["missing_registry_provenance"] = (
-            "FAIL: missing registry emitted empty artifact identifiers and changed SAIDs"
-            if missing_artifact and changed_identity else
-            "INDETERMINATE: expected baseline difference not reproduced")
+        missing_result = curate.main([
+            "--processed", str(output / "processed"),
+            "--curated", str(missing),
+            "--registry", str(base / "nonexistent-registry.json"),
+            "--quiet",
+        ])
+        if missing_result == 0 or docs(missing):
+            checks["missing_registry_provenance"] = (
+                "FAIL: missing registry was accepted or emitted curated records")
+        else:
+            checks["missing_registry_provenance"] = (
+                "PASS: missing registry rejected without publishing curated records")
 
         # Exercise the actual ingestion->curation entry points after raw-source
         # modification WITHOUT --prune. Preserve the original inputs separately.
