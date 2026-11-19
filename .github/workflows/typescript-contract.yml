@@ -21,6 +21,9 @@ jobs:
           cache: npm
           cache-dependency-path: toip-mcp-server/package-lock.json
       - working-directory: toip-mcp-server
+        env:
+          # CPU-only CI: avoid downloading optional GPU binaries from GitHub releases.
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: npm ci
       - working-directory: toip-mcp-server
         run: npm run build
