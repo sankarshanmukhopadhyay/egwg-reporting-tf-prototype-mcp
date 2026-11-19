@@ -1,7 +1,7 @@
 import { LocalIndex } from 'vectra'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { documentStore, toSearchResult } from './documents.js'
+import { documentStore, invalidDocumentIds, toSearchResult } from './documents.js'
 import { summarizeResolutions } from './resolution-summary.js'
 import { search } from './search.js'
 
@@ -75,9 +75,9 @@ if (!(await index.isIndexCreated())) {
 }
 
 const result = await search(index, query, limit, { filterWg, allChunks })
-const documents = await documentStore()
+const [documents, invalidIds] = await Promise.all([documentStore(), invalidDocumentIds()])
 const joined = result.hits.map((hit) => ({
-  resolution: toSearchResult(hit.metadata, hit.score, documents.get(hit.metadata.document_id as string)),
+  resolution: toSearchResult(hit.metadata, hit.score, documents.get(hit.metadata.document_id as string), invalidIds),
   hit,
 }))
 const summary = summarizeResolutions(joined.map(({ resolution, hit }) => ({

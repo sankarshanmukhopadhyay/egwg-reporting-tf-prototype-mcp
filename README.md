@@ -46,6 +46,8 @@ The primary components are:
 | [`scripts/`](scripts/) | Source acquisition utilities | [Acquisition instructions](mcp_data_generation/README.md#step-1-collect-raw-data) |
 | [`AGENTS.md`](AGENTS.md) | Architectural workstreams, data-model ownership and source-of-truth rules | [Architecture and contributor guidance](AGENTS.md) |
 
+**Retrieval integrity:** The merged [PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24) withholds unresolved parent joins. [PR #36](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/36) adds complete v1 Normalized Document SAID verification at document load; content-address agreement does not authenticate source material.
+
 **Identity and evidence boundaries.** A Normalized Document SAID identifies an exact serialized record, including its provenance metadata; it does not identify a meeting or wiki page independently of revisions. Source-reference fields and content hashes help trace records, but do not independently establish the authenticity or authority of the source. An index hit is not a verified historical assertion.
 
 ## Try the local pipeline

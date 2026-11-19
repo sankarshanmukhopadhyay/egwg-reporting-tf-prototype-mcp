@@ -14,6 +14,7 @@ import {
 import { loadDocuments, organizationalUnits, toSearchResult } from '../src/documents.js'
 import type { NormalizedDocument } from '../src/types.js'
 import { summarizeResolutions } from '../src/resolution-summary.js'
+import { summarizeIndexedDocuments } from '../src/document-listing.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const examplePath = path.join(
@@ -176,4 +177,46 @@ test('all-unresolved retrieval fails in both output modes; ordinary empty search
   ]), { resolvedCount: 0, matchedCount: 0, unresolvedCount: 1, exitCode: 1 })
   assert.deepEqual(summarizeResolutions([]),
     { resolvedCount: 0, matchedCount: 0, unresolvedCount: 0, exitCode: 0 })
+})
+
+test('list_documents counts withheld documents rather than indexed chunks', async () => {
+  const doc = await example()
+  const available = new Map([[doc.identifier, {
+    schema_version: doc.schema_version,
+    identifier: doc.identifier,
+    document: doc.document,
+    provenance: doc.provenance,
+    content: { content_type: doc.content.content_type },
+  }]])
+  const valid = { metadata: {
+    document_id: doc.identifier, date: doc.document.date,
+    content_type: doc.content.content_type,
+    organizational_unit: JSON.stringify(doc.document.organizational_unit),
+  } }
+  const missing = { metadata: {
+    ...valid.metadata, document_id: 'missing-document',
+  } }
+  const indexed = [valid, valid, missing, missing, missing, missing]
+  const mixed = summarizeIndexedDocuments(indexed, available)
+  assert.equal(mixed.docs.size, 1)
+  assert.deepEqual([...mixed.withheldIds], ['missing-document'])
+  assert.equal(mixed.allWithheld, false)
+  assert.equal(mixed.docs.get(doc.identifier)?.title, doc.document.title)
+  assert.equal(mixed.docs.get(doc.identifier)?.date, doc.document.date)
+
+  const withheldOnly = summarizeIndexedDocuments([missing, missing, missing, missing], available)
+  assert.equal(withheldOnly.docs.size, 0)
+  assert.equal(withheldOnly.withheldIds.size, 1)
+  assert.equal(withheldOnly.allWithheld, true)
+
+  const emptyIndex = summarizeIndexedDocuments([], available)
+  assert.equal(emptyIndex.docs.size, 0)
+  assert.equal(emptyIndex.withheldIds.size, 0)
+  assert.equal(emptyIndex.allWithheld, false)
+
+  const validOnly = summarizeIndexedDocuments([valid], available)
+  assert.equal(validOnly.allWithheld, false)
+  // Filtering is applied after integrity classification, so a filter with
+  // no matching valid documents is not an integrity error.
+  assert.equal([...validOnly.docs.values()].filter(d => d.content_type === 'nonexistent').length, 0)
 })
