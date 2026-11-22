@@ -11,7 +11,10 @@ const args = process.argv.slice(2)
 let indexPath = path.join(__dirname, '..', '.index')
 let directory = dataDir()
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--index' && args[i + 1]) indexPath = args[++i]
+  if (args[i] === '--help' && args.length === 1) {
+    console.log('Usage: npm run check-consistency -- [--index DIR] [--data DIR]')
+    process.exit(0)
+  } else if (args[i] === '--index' && args[i + 1]) indexPath = args[++i]
   else if (args[i] === '--data' && args[i + 1]) directory = args[++i]
   else {
     console.error('Usage: npm run check-consistency -- [--index DIR] [--data DIR]')

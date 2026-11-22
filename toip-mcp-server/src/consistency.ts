@@ -2,7 +2,8 @@
  * Read-only reconciliation of a derived vector index against normalized documents.
  * Presence and structural coherence are not proofs of source authenticity.
  */
-import { isNormalizedDocument } from './chunks.js'
+import { chunkText, isNormalizedDocument } from './chunks.js'
+import { verifyNormalizedSaid } from './said.js'
 
 export interface IndexedEntry {
   id: string
@@ -33,6 +34,8 @@ export function assessConsistency(
   const documents = new Map<string, string>()
   const indexedDocs = new Set<string>()
   const chunks = new Set<string>()
+  const missingParents = new Map<string, number>()
+  const indexableDocuments = new Set<string>()
   for (const entry of curated) {
     const doc = entry.parsed
     if (entry.error || !isNormalizedDocument(doc)) {
@@ -40,6 +43,12 @@ export function assessConsistency(
         detail: entry.error ?? 'not a schema_version 1 normalized document' })
       continue
     }
+    if (!verifyNormalizedSaid(doc)) {
+      findings.push({ code: 'invalid_curated_document', subject: entry.filename,
+        detail: 'normalized document SAID does not match its content' })
+      continue
+    }
+    if (chunkText(doc.content.text).length > 0) indexableDocuments.add(doc.identifier)
     const first = documents.get(doc.identifier)
     if (first) {
       findings.push({ code: 'duplicate_document_identifier', subject: entry.filename,
@@ -59,8 +68,7 @@ export function assessConsistency(
     }
     indexedDocs.add(docId)
     if (!documents.has(docId)) {
-      findings.push({ code: 'missing_parent_document', subject: item.id,
-        detail: 'no readable normalized document for ' + docId })
+      missingParents.set(docId, (missingParents.get(docId) ?? 0) + 1)
     }
     if (!str(chunkId) || !/^.+#chunk-[0-9]+$/.test(chunkId) ||
         !chunkId.startsWith(docId + '#chunk-')) {
@@ -78,7 +86,11 @@ export function assessConsistency(
         detail: 'schema_version, chunk_index, text or embedding_model invalid' })
     }
   }
-  for (const docId of documents.keys()) {
+  for (const [docId, count] of missingParents) {
+    findings.push({ code: 'missing_parent_document', subject: docId,
+      detail: 'no readable normalized document; ' + count + ' indexed chunk(s) affected' })
+  }
+  for (const docId of indexableDocuments) {
     if (!indexedDocs.has(docId)) {
       findings.push({ code: 'missing_indexed_document', subject: docId,
         detail: 'normalized document has no indexed chunks (may be empty or pending ingest)' })

@@ -224,3 +224,5 @@ or contain no searchable content. An orphan may arise after a revised SAID
 before `--prune` is performed. These are operational observations, not
 automatic repair instructions. The tool checks *structural* correspondence,
 not SAID cryptographic verification, Raw Artifact authenticity or permissions.
+
+Index consistency uses the same v1 SAID verification as retrieval; it reports altered curated records as invalid rather than treating structural validity as content integrity. Documents without indexable text do not require chunks. Missing-parent findings are grouped by normalized document identifier with an affected-chunk count. The diagnostic remains read-only and does not verify source authenticity.
