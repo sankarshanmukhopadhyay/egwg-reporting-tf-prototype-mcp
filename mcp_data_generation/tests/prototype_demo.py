@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 from src import curate, ingestion_engine
@@ -19,6 +20,19 @@ from tests.fixtures import CacheFixture
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def execution_identity():
+    root = Path(__file__).resolve().parents[2]
+    def git(*args):
+        return subprocess.run(['git', '-C', str(root), *args],
+                              capture_output=True, text=True, check=False)
+    revision = git('rev-parse', '--verify', 'HEAD')
+    if revision.returncode != 0 or len(revision.stdout.strip()) != 40:
+        return {'executed_commit': None, 'tracked_source_modified': None}
+    changed = git('diff', '--quiet', 'HEAD', '--')
+    return {'executed_commit': revision.stdout.strip(),
+            'tracked_source_modified': None if changed.returncode not in (0, 1) else changed.returncode == 1}
 
 
 def generate(output: Path):
@@ -81,7 +95,8 @@ def generate(output: Path):
     raw_files = sorted(p for p in raw.rglob("*") if p.is_file())
     manifest = {
         "fixture_kind": "synthetic; not an evaluation of real ToIP knowledge",
-        "baseline": "7c35c6ba2dde40bd451bafe03685748167299271",
+        "reference_baseline": "7c35c6ba2dde40bd451bafe03685748167299271",
+        **execution_identity(),
         "inputs": [{"path": p.relative_to(raw).as_posix(), "sha256": digest(p)}
                    for p in raw_files],
         "normalized_documents": len(documents),

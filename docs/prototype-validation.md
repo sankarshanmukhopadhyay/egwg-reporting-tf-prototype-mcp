@@ -2,7 +2,7 @@
 
 ## At a glance
 
-This branch tests the **existing** ToIP knowledge-retrieval pipeline, from generated source artifacts through normalization and indexing to calls made by an actual MCP stdio client. It is a **synthetic demonstration** and a diagnostic baseline for [upstream issue #26](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26), not a production deployment or a new implementation of the pipeline.
+This suite tests the **existing** ToIP knowledge-retrieval pipeline, from generated source artifacts through normalization and indexing to calls made by an actual MCP stdio client. It is a **synthetic demonstration** and a diagnostic baseline for [upstream issue #26](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26), not a production deployment or a new implementation of the pipeline.
 
 | Question | Answer |
 | --- | --- |
@@ -27,14 +27,12 @@ documents skipped as already present. The CLI query and actual stdio
 MCP-client calls succeeded for discovery, pagination, filtering, empty
 results and traceable search output.
 
-The deliberately injected missing-parent scenario reproduced a **FAIL**:
-unresolved hits can be presented as normal search results on upstream main.
-This is evidence for prioritizing PR #24, **not** evidence that #24 has been
-reviewed or merged. The Actions workflow is green because the diagnostic
+The deliberately injected missing-parent scenario reproduced a **FAIL** on the historical baseline:
+unresolved hits could be presented as normal search results. PR #24 has since merged;
+the original failure remains historical evidence rather than a claim about current `main`. The Actions workflow is green because the diagnostic
 probe itself executed and correctly recorded this known defect; its result
 must not be interpreted as assurance PASS. The synthetic *execution* disposition is **CONDITIONAL PASS**, not a full
-#26 acceptance decision: the provenance defect remains unresolved and
-real-corpus validation is still required. The failure must not be silently
+#26 acceptance decision: real-corpus validation is still required. The failure must not be silently
 counted among passing assurance checks.
 The run uploaded `prototype-e2e-evidence` containing the synthetic manifest,
 CLI query and MCP client report (14-day retention). No approved real ToIP
@@ -45,14 +43,14 @@ This result describes the tested commit, not future changes. Recheck Actions on 
 
 ### Current-main regression disposition (November 16, 2026)
 
-The source baseline has advanced beyond the historical pinned run. Current
+The source baseline has advanced beyond the historical pinned run. PRs #24, #35 and #36 have merged, and Manthan independently replayed their affected cases. Current
 registry-aware curation refuses a missing or invalid ingestion registry without
 publishing curated documents. The earlier missing-registry normalization defect
 is therefore a historical observation, not an expected failure on the current
 branch. The negative-case probe now asserts the fail-closed behavior and treats
 unexpected publication as a FAIL. The historical missing-parent retrieval
 observation remains separately scoped to its recorded baseline, with corrective
-work proposed by PR #24. Neither correction establishes real-corpus relevance
+work merged through PR #24. Neither correction establishes real-corpus relevance
 or independent issue #26 acceptance.
 
 ## Consolidated evidence (November 12, 2026)
@@ -65,10 +63,10 @@ This fork now runs **isolated negative-case probes** in addition to the initial 
 | --- | --- | --- |
 | Unchanged ingestion, curation and index reruns | Automated fork CI and Manthan's independent report | PASS for the synthetic inputs only |
 | SDK discovery, search, filtering and pagination | Both; additional parameter/error cases reported by Manthan | Narrow synthetic client behavior verified; not client interoperability certification |
-| Missing curated parent presented as ordinary retrieval result | Independently observed on both | FAIL; candidate change in upstream [PR #24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24), not integrated here |
-| Edited source without ingestion/curation pruning can leave superseded content selected | Manthan; independently probed in fork normalization workflow | Material integrity failure, not a requirement to redesign curation under #26 |
-| Altered curated metadata with unchanged SAID accepted on retrieval | Manthan; independently probed through fork stdio MCP client | Material integrity failure: a SAID-like reference is not verified integrity |
-| Missing ingestion registry changes identifiers and suppresses artifact linkage | Manthan; independently probed in fork normalization workflow | Material provenance/identity-continuity failure |
+| Missing curated parent presented as ordinary retrieval result | Historical baseline and Manthan; subsequently replayed | Historical FAIL; #24 merged and Manthan confirmed the corrected result against #36's head |
+| Edited source without ingestion/curation pruning can leave superseded content selected | Historical probe; Manthan replayed #35 | Historical FAIL; #35 merged and independently replayed against its head |
+| Altered curated metadata with unchanged SAID accepted on retrieval | Historical probe; Manthan replayed #36 | Historical FAIL; #36 merged and independently replayed against its head |
+| Missing ingestion registry changes identifiers and suppresses artifact linkage | Historical probe; Manthan replayed #35 | Historical FAIL; #35 merged and independently replayed against its head |
 | Stale chunks after edits; missing data directory | Manthan's report (fork also separately exercises missing-parent corpus) | Reported failures; full Manthan test matrix not yet independently incorporated |
 | Malformed curated JSON interrupts ingest | Manthan's report | Reported on the pinned baseline; [PR #28](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/28) subsequently merged into upstream main, but is absent from the pinned control |
 | Empty query, unknown WG, nonlexical query, listing identifiers | Manthan's report | Interface and evidence-interpretation limitations; do not convert weak candidate retrieval into an answer-quality claim |
@@ -86,9 +84,9 @@ This is a **validation disposition**, not issue closure or a claim of upstream a
 | Acquisition-to-retrieval pipeline | PASS for generated Zoom/Confluence fixtures only |
 | Normalized records, verified SAIDs, unchanged rerun | PASS for unmodified generated fixtures; integrity/registry adverse failures recorded separately |
 | Human-adjudicated real-corpus retrieval | NOT DONE; no authorization or real corpus available |
-| Actual SDK MCP calls, filtering, pagination, errors | PASS on targeted fork paths; broader manual matrix reported by Manthan, [scripts/logs supplied](https://gist.github.com/ManthanNimodiya/022069a5186d763b4686cf4e22265449), independent replay pending |
+| Actual SDK MCP calls, filtering, pagination, errors | PASS on targeted fork paths; Manthan independently replayed this PR's runbook and linked his [scripts/logs](https://gist.github.com/ManthanNimodiya/022069a5186d763b4686cf4e22265449) |
 | Attribution and adverse lineage/index behavior | PARTIAL: reproducible failures for important boundaries; not all negative cases automated |
-| Independent assessment of PRs #23–#25 | PARTIAL: mapped by responsibility, not evaluated against their reviewed heads |
+| Independent assessment of PRs #23–#25 | PARTIAL: Manthan replayed #25 on its reviewed head; #23 has not been independently replayed here |
 | Consolidated report and disposition | PARTIAL: synthetic evidence and known defects consolidated here; independent governance acceptance and real-corpus adjudication remain |
 
 **Disposition: CONDITIONAL PASS for synthetic execution only; overall issue #26 remains INDETERMINATE pending approved real-corpus relevance adjudication and independent acceptance.** This distinction prevents missing evidence from being counted as PASS. Recording material defects does not itself require fixing them to complete the issue's validation objective; corrective changes belong to their respective owner workstreams.
@@ -101,7 +99,7 @@ The normative handoffs remain in `AGENTS.md`, implemented on upstream `main`.
 The target for upstream contribution is
 [issue #26](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/issues/26).
 
-The initial control baseline is upstream commit
+The historical control baseline is upstream commit
 `7c35c6ba2dde40bd451bafe03685748167299271` (PR #22 integrated).
 Fork branch: `test/end-to-end-prototype-validation`. No unmerged work from
 #23, #24, or #25 is silently incorporated.
@@ -161,12 +159,14 @@ redistribute meeting transcripts or Confluence exports.
 
 ## How to read the evidence
 
-`manifest.json` reports input names/digests, number of curated documents,
+`manifest.json` records the execution revision separately from the historical control, plus input names/digests, number of curated documents,
 sources, verified SAIDs, curated-output hashes and unchanged ingest/curation
 reruns. `mcp-client-report.json` records tool discovery, pagination, filters,
 retrieval, malformed requests, empty paths and adverse provenance probes.
 `normalization-failures.json` records isolated normalization lifecycle checks, distinguishing regressions still observed from defects now rejected. GitHub Actions also
 uploads the synthetic CLI output as `query.json`.
+
+The manifest records `executed_commit` from the checked-out Git revision and `tracked_source_modified` for tracked working-tree changes. A missing Git revision is recorded as `null`, never replaced with the historical control. `reference_baseline` names the earlier comparison point, not the code executed. Untracked source files are not covered by the tracked-change flag; use a clean checkout for repeatable evidence.
 
 The workflow publishes the four synthetic evidence files under its **prototype-e2e-evidence** artifact (14-day retention); the files also remain under `.prototype-demo/` when run locally:
 
@@ -236,9 +236,7 @@ The existing work is complementary:
 Keep these PRs independent. Evaluate their **current reviewed heads** once
 integrated and refresh the baseline explicitly. Do not duplicate production
 logic inside this demonstrator. Manthan's independent findings are attributed in the consolidated evidence
-above. His offered original client script and logs are not assumed available;
-they should be reconciled when shared, rather than overwritten or described
-as if executed in this fork.
+above. His [scripts and logs](https://gist.github.com/ManthanNimodiya/022069a5186d763b4686cf4e22265449) are available as independently supplied evidence; they are not executed by this workflow.
 
 Before upstream merge: confirm required contribution/DCO policy; verify the
 current branch head in Actions; run system-level adversarial review; disclose
@@ -256,17 +254,17 @@ may depend on availability of external hosting. These are deliberate
 limitations, not implicitly completed issue #26 acceptance criteria.
 
 
-## Candidate PR review-head assessment (November 13, 2026)
+## PR review-head assessment (updated November 23, 2026)
 
-The following are **independent candidate changes**, not capabilities of pinned baseline `7c35c6b`. Their CI status and scope should be reassessed on the review heads below before merge.
+The following distinguishes historical candidate assessments from subsequent merges and independent replays. The pinned baseline `7c35c6b` does not include these changes.
 
 | Candidate | Review head | Observed failure addressed | Evidence and outstanding boundary |
 | --- | --- | --- | --- |
 | [#23](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/23) | `9418e7d` | Retrieval ranking lacks a reproducible comparison surface | Offline evaluation utility can assess *captured* results. It does not establish real-corpus relevance or make ranking trustworthy without human-judged queries. |
-| [#24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24) | `a85f169` | Missing/mismatched normalized parent yields an ordinary result | Candidate distinguishes unresolved retrieval hits; it does not independently validate SAID-bearing payload integrity, source-system authenticity or the artifact v2 contract. |
-| [#25](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/25) | `d9a0c8f` | Stale index and missing parent can remain unnoticed until retrieval | Read-only index consistency diagnostics do not repair the index or establish correctness of curated record identity and content. |
+| [#24](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/24) | Historical candidate `a85f169`; merged | Missing/mismatched normalized parent yielded ordinary result | Corrective retrieval behavior merged; Manthan subsequently replayed the missing-parent case on #36's head. Does not establish source authenticity. |
+| [#25](https://github.com/trustoverip/egwg-reporting-tf-prototype-mcp/pull/25) | Review head `1b3d7b6`; newer amendments pending CI | Stale index and missing parent can remain unnoticed until retrieval | Manthan replayed 13/13 tests and reported SAID integrity, empty-content and diagnostic aggregation gaps. The read-only utility does not repair the index. |
 
-**Evidence classification:** the candidate scopes and current heads above were inspected against the public PR descriptions; these are *assessment mappings*, not reports of independently rerunning each head's implementation tests. Each candidate requires its own passing CI and maintainer review. The pinned control baseline intentionally excludes all three. Upstream #28 has subsequently merged, but that correction is also absent from the pinned baseline.
+**Evidence classification:** the historical candidate assessment is distinct from Manthan's later independent replay of #25, #35 and #36. This suite has not run his entire external matrix. #23 and amended #25 still require their own CI and maintainer review. The pinned historical control excludes these merged fixes; current branch execution is separately identified in the generated manifest.
 
 **External independent contribution:** Manthan's [MCP SDK scripts and failure logs](https://gist.github.com/ManthanNimodiya/022069a5186d763b4686cf4e22265449) were supplied after the first validation report. They are linked for reproducibility, not misrepresented as incorporated into this CI workflow.
 

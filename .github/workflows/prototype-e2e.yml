@@ -5,13 +5,15 @@ name: Prototype end-to-end evidence
 on:
   push:
     branches:
-      - test/end-to-end-prototype-validation
+      - main
   pull_request:
     paths:
       - 'mcp_data_generation/**'
       - 'toip-mcp-server/**'
       - '.github/workflows/prototype-e2e.yml'
       - 'docs/prototype-validation.md'
+      - 'README.md'
+      - 'AGENTS.md'
   workflow_dispatch:
 
 permissions:
