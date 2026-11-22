@@ -127,6 +127,8 @@ global top 50. The match is a case-insensitive substring of any entry in
 and passed to vectra as an exact-match list, because vectra's metadata filters
 have no substring operator. The MCP `search` tool behaves identically.
 
+**CLI provenance status:** `npm run query -- --json "query"` reports separate `results` and `unresolved` entries. Both text and JSON modes return exit status 1 when indexed hits exist but none resolves. Empty searches exit 0; mixed results warn while returning the resolved subset. The MCP `search` response likewise reports withheld joins without counting them as successful results.
+
 ## Run
 
 ```bash
@@ -205,3 +207,27 @@ and `AGENTS.md`:
 The index carries only what a chunk needs for search and filtering. Title,
 project and source come from the curated document, so the index is not a
 source of truth for document metadata and can be rebuilt at any time.
+
+## Retrieval integrity and SAID validation
+
+A vector hit is insufficient to establish a usable provenance join.
+An absent or mismatched parent is withheld by the merged #24 behavior.
+The SAID verification added by #36 recalculates each complete v1 Normalized Document's
+BLAKE3-256 URN SAID when the document store loads; invalid identifiers and
+conflicting duplicate copies are withheld and reported as
+`invalid_document_said` rather than `missing_document`. Affected documents
+do not appear as ordinary `list_documents` entries. The listing counts distinct
+withheld document identifiers, not their indexed chunks, and returns an MCP
+error when an existing index has no resolvable documents. Empty indexes and
+filter-only no-match results are not integrity errors. CLI and MCP search share
+these outcomes. No automated index repair occurs, and the long-running server
+must be restarted after changing the curated corpus because it caches document
+metadata.
+
+JSON key order is part of the v1 SAID identity. Reformatting that sorts object
+keys changes the computed SAID and causes the document to be withheld until
+it is regenerated with the canonical Python SAID process and reindexed.
+
+This establishes agreement with the claimed content address, **not**
+source authenticity, source-system authorization, historical validity, or the
+integrity of stored vector chunks. The checks do not substitute for independent source or governance assurance.
