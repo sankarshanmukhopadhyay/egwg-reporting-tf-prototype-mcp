@@ -65,6 +65,8 @@ jobs:
         run: python -m tests.prototype_failures --output "$TOIP_DEMO_OUTPUT"
       - name: TypeScript dependencies, contract tests and build
         working-directory: toip-mcp-server
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: |
           npm ci
           npm test
