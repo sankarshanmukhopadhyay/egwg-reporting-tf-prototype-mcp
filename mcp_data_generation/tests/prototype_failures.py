@@ -89,8 +89,9 @@ def run(output):
             checks["source_revision_without_prune"] = "PASS: revised content selected"
 
     report = {
-        "scope": "isolated synthetic normalization lifecycle probes on pinned baseline",
-        "baseline": json.loads((output / "manifest.json").read_text())["baseline"],
+        "scope": "isolated synthetic normalization lifecycle probes on executed revision",
+        "executed_commit": json.loads((output / "manifest.json").read_text())["executed_commit"],
+        "reference_baseline": json.loads((output / "manifest.json").read_text())["reference_baseline"],
         "checks": checks,
         "attribution": "Independent reproductions informed by ManthanNimodiya's issue #26 report; not his original scripts or logs.",
     }

@@ -35,7 +35,8 @@ async function tool(client, name, args) {
 
 const report = {
   scope: 'synthetic fixture and actual stdio MCP client; no real-corpus relevance claim',
-  baseline: manifest.baseline,
+  executed_commit: manifest.executed_commit,
+  reference_baseline: manifest.reference_baseline,
   checks: {},
   limitations: [],
 }
