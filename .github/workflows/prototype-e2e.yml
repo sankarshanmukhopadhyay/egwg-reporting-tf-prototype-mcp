@@ -50,6 +50,16 @@ jobs:
       - name: Generate source-diverse corpus and verify identity and repeatability
         working-directory: mcp_data_generation
         run: python -m tests.prototype_demo --output "$TOIP_DEMO_OUTPUT"
+      - name: Verify manifest identifies checked-out revision
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          manifest = json.loads((Path(os.environ['TOIP_DEMO_OUTPUT']) / 'manifest.json').read_text())
+          expected = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert manifest['executed_commit'] == expected
+          assert manifest['tracked_source_modified'] is False
+          PY
       - name: Reproduce normalization lifecycle failures in isolation
         working-directory: mcp_data_generation
         run: python -m tests.prototype_failures --output "$TOIP_DEMO_OUTPUT"

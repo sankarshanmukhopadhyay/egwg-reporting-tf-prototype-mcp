@@ -181,9 +181,8 @@ Reports use these **check outcomes**:
 
 - **PASS**: executed check proved its *narrow* assertion on the pinned corpus.
 - **FAIL**: observed behavior contradicts an expected boundary. In particular,
-  main may render a missing-parent hit as ordinary retrieval evidence. This
-  is an existing problem targeted by upstream PR #24, and must remain visible
-  even if this demonstrator's CI completes successfully.
+  the historical baseline could render a missing-parent hit as ordinary retrieval evidence.
+  PR #24 has since merged; preserve the original observation without attributing it to current `main`.
 - **INDETERMINATE**: requested execution or evidence is missing or did not
   match a supported outcome. Do not translate this into PASS.
 
