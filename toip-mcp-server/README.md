@@ -241,3 +241,22 @@ it is regenerated with the canonical Python SAID process and reindexed.
 This establishes agreement with the claimed content address, **not**
 source authenticity, source-system authorization, historical validity, or the
 integrity of stored vector chunks. The checks do not substitute for independent source or governance assurance.
+
+## Read-only consistency inspection
+
+Run `npm run check-consistency -- --data /path/to/curated --index /path/to/index`
+to examine the indexed chunks against the normalized-document directory.
+Without options, the tool uses the same default directories as ingestion and
+respects `TOIP_DATA_DIR`. It does not compute embeddings, mutate the index,
+prune entries, or claim to authenticate source files.
+
+The JSON report distinguishes missing parents, duplicate chunk IDs, invalid
+chunk metadata, malformed curated documents, duplicate document identifiers,
+and normalized documents without indexed chunks. Findings produce exit code 1;
+inaccessible index/input produces exit code 2; no findings produces exit code 0.
+
+A normalized document with indexable text lacking indexed chunks may be awaiting ingestion. Empty-text documents are exempt. An orphan may arise after a revised SAID
+before `--prune` is performed. These are operational observations, not
+automatic repair instructions. The tool checks normalized-document SAIDs using the retrieval verifier, but does not authenticate Raw Artifacts or permissions.
+
+Missing-parent findings are grouped by normalized document identifier with an affected-chunk count; the diagnostic remains read-only.
